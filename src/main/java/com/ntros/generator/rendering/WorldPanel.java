@@ -1,5 +1,6 @@
 package com.ntros.generator.rendering;
 
+import com.ntros.generator.GenStats;
 import com.ntros.generator.Tile;
 import com.ntros.generator.world.World;
 import java.awt.Color;
@@ -10,7 +11,7 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
-import javax.swing.JPanel;
+import javax.swing.*;
 
 public class WorldPanel extends JPanel implements MouseWheelListener {
 
@@ -27,7 +28,7 @@ public class WorldPanel extends JPanel implements MouseWheelListener {
   private static final Color MOUNTAIN_COLOR = new Color(227, 227, 218);
   private static final Color EMPTY_COLOR = Color.BLACK;
 
-  private World world;
+  private final World world;
   private int tileSize = 128;
   // prebuilt rendering image of the world
   private BufferedImage cachedImage;
@@ -41,11 +42,12 @@ public class WorldPanel extends JPanel implements MouseWheelListener {
     rebuildImage();
   }
 
-  // on each call - update world and image
-  public void setWorld(World world) {
-    this.world = world;
-    rebuildImage();
+  public void redraw(GenStats stats) {
+    JLabel label = new JLabel();
+    label.setText(String.format("Iterations: %s", stats.getIterations()));
+    label.setText(String.format("Conflicts: %s", stats.getConflicts()));
     repaint();
+    label.repaint();
   }
 
   @Override
@@ -62,6 +64,8 @@ public class WorldPanel extends JPanel implements MouseWheelListener {
 
     int panelWidth = getWidth();
     int panelHeight = getHeight();
+
+    rebuildImage();
 
     g2.drawImage(cachedImage, 0, 0, panelWidth, panelHeight, null);
     g2.dispose();

@@ -20,18 +20,17 @@ public class WorldGenerator {
   // rules[tile][dir] = allowed neighbor tiles
   private boolean[][][] rules;
 
-  private int iterations = 0;
-  private int conflicts = 0;
 
   private int width;
   private int height;
   private List<Tile> terrain;
+  private final GenStats genStats;
 
-  public void initialize(int width, int height) {
+  public  WorldGenerator(int width, int height, GenStats genStats) {
     this.width = width;
     this.height = height;
-    this.iterations = 0;
-    this.conflicts = 0;
+    this.genStats = genStats;
+
     rules = new boolean[TILE_COUNT][NEIGHBORS][TILE_COUNT];
 
     buildRules();
@@ -52,22 +51,13 @@ public class WorldGenerator {
   public World getWorld() {
     return World.of(width, height, terrain);
   }
-
-  public int getIterations() {
-    return iterations;
+  public GenStats getGenStats() {
+    return genStats;
   }
-
-  public int getConflicts() {
-    return conflicts;
-  }
-
-  public boolean isDone() {
-    return conflicts == 0;
-  }
-
   public void step() {
-    conflicts = minConflicts(width, height, terrain);
-    iterations++;
+    int conflicts = minConflicts(width, height, terrain);
+    genStats.setConflicts(conflicts);
+    genStats.incrementIterations();
   }
 
   private int minConflicts(int width, int height, List<Tile> terrain) {
