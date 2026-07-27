@@ -1,6 +1,5 @@
-package com.ntros.graphics.rendering.screens;
+package com.ntros.graphics.rendering.panel;
 
-import static com.ntros.graphics.ScreenType.SIMULATION;
 import static com.ntros.graphics.ScreenType.WORLD_SETUP;
 
 import com.ntros.MainSettings;
@@ -9,14 +8,13 @@ import java.awt.image.BufferedImage;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-public class MainMenuPanel extends JPanel {
+public class MainMenuPanel extends AbstractScreenPanel {
   // Options: New game, Load game, Settings, Exit
 
-  private final ScreenController screenController;
   private BufferedImage cachedMenuImage;
 
   public MainMenuPanel(ScreenController screenController) {
-    this.screenController = screenController;
+      super(screenController);
     setPreferredSize(new Dimension(MainSettings.WIDTH, MainSettings.HEIGHT));
     setLayout(new GridBagLayout());
     setOpaque(true);

@@ -1,4 +1,4 @@
-package com.ntros.graphics.rendering.screens;
+package com.ntros.graphics.rendering.panel;
 
 import com.ntros.graphics.ScreenType;
 

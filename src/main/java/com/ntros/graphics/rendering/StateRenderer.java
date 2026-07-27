@@ -1,7 +1,7 @@
 package com.ntros.graphics.rendering;
 
 import com.ntros.core.world.WorldSnapshot;
-import com.ntros.graphics.rendering.screens.WorldSimPanel;
+import com.ntros.graphics.rendering.panel.WorldSimPanel;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**

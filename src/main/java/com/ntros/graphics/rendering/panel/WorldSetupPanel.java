@@ -1,4 +1,4 @@
-package com.ntros.graphics.rendering.screens;
+package com.ntros.graphics.rendering.panel;
 
 import com.ntros.core.world.WorldGenerationSettings;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
@@ -9,13 +9,12 @@ import java.awt.*;
 import java.util.Random;
 import java.util.function.Consumer;
 
-public class WorldSetupPanel extends JPanel {
+public class WorldSetupPanel extends AbstractScreenPanel {
 
   // world dimensions in tiles, independent of the window size
   private static final int WORLD_WIDTH = 1920;
   private static final int WORLD_HEIGHT = 1080;
 
-  private final ScreenController screenController;
   private final Consumer<WorldGenerationSettings> generationHandler;
   private final JTextField seedField = new JTextField(20);
   private final JButton generateButton = new JButton("Generate World");
@@ -23,7 +22,7 @@ public class WorldSetupPanel extends JPanel {
 
   public WorldSetupPanel(
       ScreenController screenController, Consumer<WorldGenerationSettings> generationHandler) {
-    this.screenController = screenController;
+      super(screenController);
 
     this.generationHandler = generationHandler;
 

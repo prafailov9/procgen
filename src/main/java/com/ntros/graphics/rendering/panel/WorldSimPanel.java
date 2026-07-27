@@ -1,4 +1,4 @@
-package com.ntros.graphics.rendering.screens;
+package com.ntros.graphics.rendering.panel;
 
 import com.ntros.core.world.Tile;
 import com.ntros.core.world.WorldSnapshot;
@@ -9,7 +9,10 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
 
-public class WorldSimPanel extends JPanel implements MouseWheelListener {
+/**
+ * ESC - pause sim, display PAUSE_MENU
+ */
+public class WorldSimPanel extends AbstractScreenPanel implements MouseWheelListener {
 
   private static final int ZOOM_STEP = 1;
   private static final int MIN_TILE_SIZE = 1;
@@ -29,7 +32,6 @@ public class WorldSimPanel extends JPanel implements MouseWheelListener {
   // terrain bytes are Tile ordinals; index straight into this lookup when building the image
   private static final int[] TILE_RGB = buildTileRgbLookup();
 
-  private final ScreenController screenController;
   // pixels per tile
   private int tileSize = MIN_TILE_SIZE;
   // latest snapshot received from the sim; only ever replaced, never mutated
@@ -40,7 +42,7 @@ public class WorldSimPanel extends JPanel implements MouseWheelListener {
   private int[] pixelBuffer;
 
   public WorldSimPanel(ScreenController screenController) {
-    this.screenController = screenController;
+      super(screenController);
     addMouseWheelListener(this);
     setFocusable(true);
     setBackground(Color.BLACK);
