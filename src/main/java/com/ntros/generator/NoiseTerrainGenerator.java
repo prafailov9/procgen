@@ -72,9 +72,9 @@ public class NoiseTerrainGenerator {
   }
 
   private byte classify(float elevation, float moisture) {
-    if (elevation < 0.30f) return encodeTile(DEEP_WATER);
-    if (elevation < 0.40f) return encodeTile(SHALLOW_WATER);
-    if (elevation < 0.42f)
+    if (elevation < 0.18) return encodeTile(DEEP_WATER);
+    if (elevation < 0.38f) return encodeTile(SHALLOW_WATER);
+    if (elevation < 0.41f)
       return moisture < 0.45f ? encodeTile(GRASS) : encodeTile(SAND);
     if (elevation < 0.75f)
       return moisture < 0.45f ? encodeTile(GRASS) : encodeTile(FORREST); // lowland

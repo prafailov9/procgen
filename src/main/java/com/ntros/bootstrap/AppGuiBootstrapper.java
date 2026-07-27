@@ -18,6 +18,8 @@ import com.ntros.graphics.rendering.StateRenderer;
 import javax.swing.SwingUtilities;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.ntros.graphics.ScreenType.SIMULATION;
+
 /**
  * Wires the GUI screens to the simulation runtime: world setup requests generation, generation
  * completion starts the sim and switches to the simulation screen.
@@ -86,7 +88,7 @@ public final class AppGuiBootstrapper {
     simulationController.start();
 
     appGuiRunner.getWorldSetupPanel().setGenerating(false);
-    appGuiRunner.getScreenController().show(ScreenType.SIMULATION);
+    appGuiRunner.getScreenController().show(SIMULATION);
   }
 
   private void stopCurrentSimulation() {
