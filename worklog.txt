@@ -1,0 +1,11 @@
+I. Current issues:
+1. [FIXED] Swing window is tiny and not responding to different values for width and height. WorldScreen dimensions getter was returning hardcoded 800x800 values. Swapped them with world dimensions.
+
+II. Current Goals:
+1. Implement Command classes. have a MVP SpeedChange command.
+2. Implement the State Loop. have a minimum viable loop that spins and responds to speed value changes. Verify with logs.
+3. Implement Publication Algorithm.
+4. Renderer should manage different screens.
+5. Implement Screen directional flow.
+6. Figure out how Commands can be generated from player actions(keyboard, mouse).
+7. Implement multiple generation strategies for objects on top of the world and make world+objects generation customizable based on player preference.
