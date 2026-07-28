@@ -1,5 +1,7 @@
 package com.ntros.core.channel;
 
+import com.ntros.core.command.Command;
+
 public interface Channel {
 
     boolean tryOffer(Command command);

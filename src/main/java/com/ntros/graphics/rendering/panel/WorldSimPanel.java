@@ -2,16 +2,13 @@ package com.ntros.graphics.rendering.panel;
 
 import com.ntros.core.world.Tile;
 import com.ntros.core.world.WorldSnapshot;
-
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
+import javax.swing.*;
 
-/**
- * ESC - pause sim, display PAUSE_MENU
- */
+/** ESC - pause sim, display PAUSE_MENU [1 - 5] - Speed change commands. */
 public class WorldSimPanel extends AbstractScreenPanel implements MouseWheelListener {
 
   private static final int ZOOM_STEP = 1;
@@ -42,7 +39,7 @@ public class WorldSimPanel extends AbstractScreenPanel implements MouseWheelList
   private int[] pixelBuffer;
 
   public WorldSimPanel(ScreenController screenController) {
-      super(screenController);
+    super(screenController);
     addMouseWheelListener(this);
     setFocusable(true);
     setBackground(Color.BLACK);

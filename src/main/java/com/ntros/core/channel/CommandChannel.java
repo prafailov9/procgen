@@ -1,5 +1,6 @@
 package com.ntros.core.channel;
 
+import com.ntros.core.command.Command;
 import com.ntros.core.channel.queue.LinkedQueue;
 import com.ntros.core.channel.queue.Queue;
 

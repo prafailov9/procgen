@@ -1,7 +1,7 @@
 package com.ntros.core;
 
 import com.ntros.core.channel.Channel;
-import com.ntros.core.channel.Command;
+import com.ntros.core.command.Command;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.world.World;
 import com.ntros.core.world.WorldSnapshot;
