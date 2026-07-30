@@ -1,8 +1,8 @@
 package com.ntros.generator;
 
-import static com.ntros.core.world.Tile.*;
-
-import com.ntros.core.world.Tile;
+import com.ntros.core.world.terrain.TerrainClassifier;
+import com.ntros.core.world.terrain.TerrainCodec;
+import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.generator.fastnoiselite.FastNoiseLite;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
 
@@ -17,12 +17,23 @@ public class NoiseTerrainGenerator {
   private final FastNoiseLite ridgedNoise;
 
   private final byte[] terrain;
+  private final TerrainClassifier terrainClassifier;
+
+  public NoiseTerrainGenerator(TerrainGenerationSettings settings) {
+    validateSettings(settings);
+    var terrainSettings = settings.worldTerrainSettings();
+    this(
+        terrainSettings.width(),
+        terrainSettings.height(),
+        terrainSettings.seed(),
+        settings.noiseSettings());
+  }
 
   public NoiseTerrainGenerator(int width, int height, long seed, NoiseSettings settings) {
     this.width = width;
     this.height = height;
     this.seed = seed;
-
+    terrainClassifier = new TerrainClassifier();
     elevationNoise =
         buildNoise(
             seed,
@@ -56,7 +67,7 @@ public class NoiseTerrainGenerator {
         float r = normalize(ridgedNoise.GetNoise(x, y));
         float t = smoothstep(0.70f, 0.95f, e); // 0 in lowlands, ramps toward peaks
         float combined = e + (r - 0.5f) * 0.25f * t; // adds ridgelines, keeps peaks high
-        terrain[y * width + x] = classify(combined, m);
+        terrain[y * width + x] = terrainClassifier.classify(combined, m);
       }
     }
     return terrain;
@@ -71,21 +82,6 @@ public class NoiseTerrainGenerator {
     return Math.max(0f, Math.min(1f, (n + 1f) * 0.5f));
   }
 
-  private byte classify(float elevation, float moisture) {
-    if (elevation < 0.18) return encodeTile(DEEP_WATER);
-    if (elevation < 0.38f) return encodeTile(SHALLOW_WATER);
-    if (elevation < 0.41f)
-      return moisture < 0.45f ? encodeTile(GRASS) : encodeTile(SAND);
-    if (elevation < 0.75f)
-      return moisture < 0.45f ? encodeTile(GRASS) : encodeTile(FORREST); // lowland
-    if (elevation < 0.88f) return encodeTile(HILL);
-    return encodeTile(MOUNTAIN);
-  }
-
-  private byte encodeTile(Tile tile) {
-    return (byte) tile.ordinal();
-  }
-
   private FastNoiseLite buildNoise(
       long seed, FastNoiseLite.FractalType fractalType, float frequency, int octaves) {
     var noise = new FastNoiseLite((int) seed);
@@ -94,5 +90,25 @@ public class NoiseTerrainGenerator {
     noise.SetFrequency(frequency); // lower -> bigger landmasses
     noise.SetFractalOctaves(octaves);
     return noise;
+  }
+
+  private static void validateSettings(TerrainGenerationSettings settings) {
+    if (settings == null) {
+      throw new IllegalArgumentException("Empty terrain gen settings");
+    }
+    if (settings.worldTerrainSettings() == null) {
+      throw new IllegalArgumentException("Empty World Terrain settings");
+    }
+
+    if (settings.noiseSettings() == null) {
+      throw new IllegalArgumentException("Empty noise gen settings");
+    }
+    var terrainSettings = settings.worldTerrainSettings();
+    if (terrainSettings.width() <= 0 || terrainSettings.height() <= 0) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Invalid terrain width/height. width: %s; height: %s",
+              terrainSettings.width(), terrainSettings.height()));
+    }
   }
 }

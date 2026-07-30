@@ -9,7 +9,7 @@ public class CancellationToken {
     return isCancelled.get();
   }
 
-  void cancel() {
+  public void cancel() {
     isCancelled.set(true);
   }
 }

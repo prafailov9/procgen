@@ -1,13 +1,15 @@
 package com.ntros.graphics.rendering.panel;
 
-import com.ntros.core.world.WorldGenerationSettings;
+import com.ntros.core.world.terrain.TerrainGenerationSettings;
+import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
-import com.ntros.graphics.ScreenType;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.Random;
 import java.util.function.Consumer;
+
+import static com.ntros.graphics.ScreenType.MAIN_MENU;
 
 public class WorldSetupPanel extends AbstractScreenPanel {
 
@@ -15,14 +17,14 @@ public class WorldSetupPanel extends AbstractScreenPanel {
   private static final int WORLD_WIDTH = 1920;
   private static final int WORLD_HEIGHT = 1080;
 
-  private final Consumer<WorldGenerationSettings> generationHandler;
+  private final Consumer<TerrainGenerationSettings> generationHandler;
   private final JTextField seedField = new JTextField(20);
   private final JButton generateButton = new JButton("Generate World");
   private final JLabel statusLabel = new JLabel(" ");
 
   public WorldSetupPanel(
-      ScreenController screenController, Consumer<WorldGenerationSettings> generationHandler) {
-      super(screenController);
+      ScreenController screenController, Consumer<TerrainGenerationSettings> generationHandler) {
+    super(screenController);
 
     this.generationHandler = generationHandler;
 
@@ -52,7 +54,7 @@ public class WorldSetupPanel extends AbstractScreenPanel {
 
     JButton backButton = new JButton("Back");
     backButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    backButton.addActionListener(event -> screenController.show(ScreenType.MAIN_MENU));
+    backButton.addActionListener(event -> screenController.show(MAIN_MENU));
 
     statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -83,9 +85,10 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     }
 
     // TODO: let the player tune the Noise settings
-    WorldGenerationSettings settings =
-        new WorldGenerationSettings(
-            WORLD_WIDTH, WORLD_HEIGHT, seed, new NoiseSettings(0.0025f, 5, 0.0032f, 3, 0.005f, 5));
+    TerrainGenerationSettings settings =
+        new TerrainGenerationSettings(
+            new WorldTerrainSettings(WORLD_WIDTH, WORLD_HEIGHT, seed),
+            new NoiseSettings(0.0025f, 5, 0.0032f, 3, 0.005f, 5));
 
     // TODO: add proceed or regenerate buttons
     // generation runs off the EDT; the handler switches to the sim screen when it finishes

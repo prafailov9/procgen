@@ -1,7 +1,10 @@
 package com.ntros.graphics.rendering;
 
-import com.ntros.core.world.WorldGenerationSettings;
+import com.ntros.core.control.IntentTranslator;
+import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.graphics.rendering.panel.*;
+import com.ntros.graphics.rendering.panel.sim.WorldSimPanel;
+import com.ntros.keyboard.WorldSimKeyListener;
 
 import javax.swing.*;
 import java.awt.*;
@@ -19,10 +22,17 @@ public final class AppGuiRunner {
   private final WorldSimPanel worldSimPanel;
   private final PauseMenuPanel pauseMenuPanel;
 
+  /** Setup of the Main Window's screens and controller */
   public AppGuiRunner(
-      int windowWidth, int windowHeight, Consumer<WorldGenerationSettings> genCallback) {
+      int windowWidth,
+      int windowHeight,
+      Consumer<TerrainGenerationSettings>
+          genCallback, // callback function to trigger world generation
+      IntentTranslator IntentTranslator) {
     this.windowWidth = windowWidth;
     this.windowHeight = windowHeight;
+
+    // TODO: add own assets
 
     // create a card layout for switching between screens
     CardLayout cardLayout = new CardLayout();
@@ -35,6 +45,8 @@ public final class AppGuiRunner {
     worldSetupPanel = new WorldSetupPanel(screenController, genCallback);
     worldSimPanel = new WorldSimPanel(screenController);
     pauseMenuPanel = new PauseMenuPanel(screenController);
+
+    worldSimPanel.addKeyListener(new WorldSimKeyListener(IntentTranslator));
 
     // add panels to the screen controller panel
     screens.add(mainMenuPanel, MAIN_MENU.name());
@@ -59,6 +71,7 @@ public final class AppGuiRunner {
     return pauseMenuPanel;
   }
 
+  // submits Main Window creation on the EDT
   public void startGuiApp() {
     SwingUtilities.invokeLater(
         () -> {

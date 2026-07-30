@@ -12,12 +12,19 @@
   <url>http://maven.apache.org</url>
 
   <properties>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>26</maven.compiler.source>
+    <maven.compiler.target>26</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <dependencies>
+<!--    &lt;!&ndash; Songs of Syx game jar, installed into the local repo from SOS_BACKUP for analysis/reference &ndash;&gt;-->
+<!--    <dependency>-->
+<!--      <groupId>com.songsofsyx</groupId>-->
+<!--      <artifactId>songsofsyx</artifactId>-->
+<!--      <version>71.44</version>-->
+<!--      <scope>provided</scope>-->
+<!--    </dependency>-->
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>

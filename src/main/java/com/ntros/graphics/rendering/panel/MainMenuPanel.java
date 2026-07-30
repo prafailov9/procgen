@@ -2,7 +2,7 @@ package com.ntros.graphics.rendering.panel;
 
 import static com.ntros.graphics.ScreenType.WORLD_SETUP;
 
-import com.ntros.MainSettings;
+import com.ntros.AppConstants;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import javax.swing.*;
@@ -14,8 +14,8 @@ public class MainMenuPanel extends AbstractScreenPanel {
   private BufferedImage cachedMenuImage;
 
   public MainMenuPanel(ScreenController screenController) {
-      super(screenController);
-    setPreferredSize(new Dimension(MainSettings.WIDTH, MainSettings.HEIGHT));
+    super(screenController);
+    setPreferredSize(new Dimension(AppConstants.WIDTH, AppConstants.HEIGHT));
     setLayout(new GridBagLayout());
     setOpaque(true);
 
@@ -103,10 +103,5 @@ public class MainMenuPanel extends AbstractScreenPanel {
     button.setFocusable(false);
 
     return button;
-  }
-
-  public void setMenuImage(BufferedImage image) {
-    cachedMenuImage = image;
-    repaint();
   }
 }

@@ -1,37 +1,38 @@
 package com.ntros.core;
 
-import com.ntros.graphics.rendering.StateRenderer;
+import com.ntros.core.processor.WorldStateProcessor;
+import com.ntros.graphics.rendering.StateUIRenderer;
 import javax.swing.*;
 
 public class SimulationController implements Lifecycle {
 
-  private final Thread stateLoopThread;
+  private final Thread stateProcessorThread;
   // using Swing's Timer so the renderer runs on the EDT
   private final Timer rendererTimer;
 
   private final CancellationToken token;
 
   public SimulationController(
-      WorldStateLoop worldStateLoop,
-      StateRenderer renderer,
+      WorldStateProcessor worldStateProcessor,
+      StateUIRenderer renderer,
       int renderDelayMs,
       CancellationToken cancellationToken) {
     token = cancellationToken;
-    stateLoopThread = new Thread(worldStateLoop, "state-loop-1");
+    stateProcessorThread = new Thread(worldStateProcessor, "state-proc-1");
     rendererTimer = new Timer(renderDelayMs, event -> renderer.run());
   }
 
   @Override
   public void start() {
-    stateLoopThread.start();
+    stateProcessorThread.start();
     rendererTimer.start();
   }
 
   @Override
   public void stop() throws InterruptedException {
     token.cancel();
-    stateLoopThread.interrupt(); // wake the loop if it's sleeping between frames
-    stateLoopThread.join();
+    stateProcessorThread.interrupt(); // wake the loop if it's sleeping between frames
+    stateProcessorThread.join();
     rendererTimer.stop();
   }
 }
