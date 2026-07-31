@@ -31,7 +31,7 @@ public class GenerationWorker implements Lifecycle {
     try {
       log.info("starting generation with settings: {}", terrainGenerationSettings);
       NoiseTerrainGenerator generator = new NoiseTerrainGenerator(terrainGenerationSettings);
-      byte[] terrain = generator.generateTerrain();
+      var terrain = generator.generateTerrain();
       worldPromise.complete(World.of(terrainGenerationSettings.worldTerrainSettings(), terrain));
       log.info("Gen finished");
     } catch (Throwable ex) {

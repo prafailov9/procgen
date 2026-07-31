@@ -16,3 +16,5 @@ II. Current Goals:
 - Scaffold the ECS design.
 - Implement an MVP ECS for one unit. Verify it responds to state commands/changes.
 - Implement an animal entity with age. Verify aging is relative to the Simulation Speed.
+- Implement Day/Night cycle.
+- Implement Seasons cycle.

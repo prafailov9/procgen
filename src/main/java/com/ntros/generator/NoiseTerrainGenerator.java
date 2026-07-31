@@ -63,7 +63,7 @@ public class NoiseTerrainGenerator {
     moisture = new float[size];
   }
 
-  public byte[] generateTerrain() {
+  public Terrain generateTerrain() {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         int idx = y * width + x;
@@ -77,7 +77,7 @@ public class NoiseTerrainGenerator {
         moisture[idx] = m;
       }
     }
-    return terrain;
+    return new Terrain(terrain, elevation, moisture);
   }
 
   private static float smoothstep(float a, float b, float x) {
@@ -101,7 +101,7 @@ public class NoiseTerrainGenerator {
 
   private static void validateSettings(TerrainGenerationSettings settings) {
     if (settings == null) {
-      throw new IllegalArgumentException("Empty terrain gen settings");
+      throw new IllegalArgumentException("Empty tiles gen settings");
     }
     if (settings.worldTerrainSettings() == null) {
       throw new IllegalArgumentException("Empty World Terrain settings");
@@ -113,12 +113,12 @@ public class NoiseTerrainGenerator {
     var terrainSettings = settings.worldTerrainSettings();
     var dimensions = terrainSettings.dimensions2d();
     if (dimensions == null) {
-      throw new IllegalArgumentException("Empty terrain dimensions");
+      throw new IllegalArgumentException("Empty tiles dimensions");
     }
     if (dimensions.width() <= 0 || dimensions.height() <= 0) {
       throw new IllegalArgumentException(
           String.format(
-              "Invalid terrain width/height. width: %s; height: %s",
+              "Invalid tiles width/height. width: %s; height: %s",
               dimensions.width(), dimensions.height()));
     }
   }

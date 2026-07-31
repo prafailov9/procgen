@@ -3,6 +3,7 @@ package com.ntros.core.world;
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
+import com.ntros.generator.Terrain;
 
 import java.util.Arrays;
 
@@ -16,7 +17,7 @@ public final class World {
 
   private final int width, height, size;
   // flat array representing a 2d grid, for faster cache access
-  // terrain-level data
+  // tiles-level data
   private final byte[] terrain;
   private final float[] elevation;
 
@@ -58,13 +59,13 @@ public final class World {
     return new World(width, height);
   }
 
-  public static World of(int width, int height, byte[] terrain) {
+  public static World of(int width, int height, Terrain terrain) {
     validateDimensions(width, height);
-    validateTerrain(width, height, terrain);
-    return new World(width, height, terrain);
+    validateTerrain(width, height, terrain.tiles());
+    return new World(width, height, terrain.tiles());
   }
 
-  public static World of(WorldTerrainSettings worldTerrainSettings, byte[] terrain) {
+  public static World of(WorldTerrainSettings worldTerrainSettings, Terrain terrain) {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
@@ -73,8 +74,8 @@ public final class World {
       throw new IllegalArgumentException("Empty dimensions");
     }
     validateDimensions(dimensions.width(), dimensions.height());
-    validateTerrain(dimensions.width(), dimensions.height(), terrain);
-    return new World(dimensions.width(), dimensions.height(), terrain);
+    validateTerrain(dimensions.width(), dimensions.height(), terrain.tiles());
+    return new World(dimensions.width(), dimensions.height(), terrain.tiles());
   }
 
   public int createEntity() {
