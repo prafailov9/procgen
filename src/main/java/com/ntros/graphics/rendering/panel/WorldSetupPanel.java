@@ -1,5 +1,7 @@
 package com.ntros.graphics.rendering.panel;
 
+import com.ntros.AppConstants;
+import com.ntros.Main;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
@@ -45,7 +47,7 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
     title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-    seedField.setText(Long.toString(new Random().nextLong()));
+    seedField.setText(String.valueOf(Main.SEED));
     seedField.setMaximumSize(new Dimension(300, 32));
 
     JButton randomSeedButton = new JButton("Random Seed");
