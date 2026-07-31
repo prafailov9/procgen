@@ -14,6 +14,7 @@ public class AppConstants {
   public static final int MAIN_WINDOW_WIDTH = 2560;
   public static final int MAIN_WINDOW_HEIGHT = 1440;
   public static final String TILE_ENCODINGS_FILEPATH = "/tile-encodings.properties";
+  public static final int CREATURES_CAPACITY = 500; // low for now
 
   public static Map<WorldSize, Dimensions2d> WORLD_SIZES_ALLOWLIST =
       Map.of(
@@ -27,11 +28,4 @@ public class AppConstants {
           ofBiggerWorld(),
           MASSIVE,
           ofMassiveWorld());
-
-  public static Dimensions2d getSizeByOrdinal(int ordinal) {
-    if (ordinal < 0 || ordinal > WORLD_SIZES_ALLOWLIST.size() - 1) {
-      throw new IllegalArgumentException("Invalid WorldSize ordinal requested: " + ordinal);
-    }
-    return WORLD_SIZES_ALLOWLIST.get(WorldSize.values()[ordinal]);
-  }
 }

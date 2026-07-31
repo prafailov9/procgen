@@ -76,7 +76,6 @@ public class WorldSimPanel extends AbstractScreenPanel {
 
   //  @Override
   //  public void mouseWheelMoved(MouseWheelEvent e) {
-  //    // TODO: zoom is anchored at the top-left corner; add panning + cursor-centered zoom
   //
   //    // wheel up (negative rotation) zooms in
   //    int next = tileSize - e.getWheelRotation() * ZOOM_STEP;
