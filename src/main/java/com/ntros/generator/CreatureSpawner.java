@@ -1,34 +1,31 @@
 package com.ntros.generator;
 
-import static com.ntros.AppConstants.CREATURES_CAPACITY;
-import static com.ntros.Main.SYSTEM_SEED;
+import static com.ntros.AppConstants.*;
+import static com.ntros.ecs.store.CreatureType.FOX;
+import static com.ntros.ecs.store.CreatureType.RABBIT;
 
 import com.ntros.core.world.terrain.TerrainClassifier;
 import com.ntros.ecs.store.CreatureStore;
-import com.ntros.ecs.store.CreatureType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
 public final class CreatureSpawner {
 
+  private static final Logger log = LoggerFactory.getLogger(CreatureSpawner.class);
   private final Terrain terrain;
-  private final Random rng = new Random(SYSTEM_SEED);
+  private final Random rng;
   private final TerrainClassifier classifier = new TerrainClassifier();
 
-  private int spawnedEntitiesCount = 0;
+  private int spawnedCreaturesCount = 0;
 
-  public CreatureSpawner(Terrain terrain) {
+  public CreatureSpawner(Terrain terrain, long seed) {
     if (terrain == null) {
       throw new IllegalArgumentException("Empty terrain, nothing to spawn");
     }
+    rng = new Random(seed + 1);
     this.terrain = terrain;
-  }
-
-  private boolean inBounds(int x, int y) {
-    return x >= 0
-        && x < terrain.dimensions2d().width()
-        && y >= 0
-        && y < terrain.dimensions2d().height();
   }
 
   public CreatureStore spawnEntities() {
@@ -37,38 +34,30 @@ public final class CreatureSpawner {
     CreatureStore creatureStore = new CreatureStore();
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        if (spawnedEntitiesCount >= CREATURES_CAPACITY) {
+        if (spawnedCreaturesCount >= CREATURES_CAPACITY) {
           return creatureStore;
-        }
-        if (!inBounds(x, y)) {
-          continue;
         }
         // roll dice to spawn on a valid tile
         if (classifier.spawnChance(x, y, terrain) < rng.nextFloat()) {
           continue;
         }
         // spawn
-        spawnedEntitiesCount++;
-        int idx = y * width + x;
-        if (idx >= CREATURES_CAPACITY) {
-          continue;
-        }
-
-        creatureStore.age()[idx] = 1;
-        creatureStore.x()[idx] = x;
-        creatureStore.y()[idx] = y;
-        creatureStore.alive().set(idx, true);
-        creatureStore.energy()[idx] = 100.0f;
+        spawnedCreaturesCount++;
+        int creatureId = creatureStore.spawn();
+        creatureStore.age()[creatureId] = CREATURE_START_AGE;
+        creatureStore.x()[creatureId] = x;
+        creatureStore.y()[creatureId] = y;
+        creatureStore.energy()[creatureId] = CREATURE_MAX_ENERGY;
         byte s;
-        if (rng.nextBoolean()) {
-          s = (byte) CreatureType.FOX.ordinal();
+        if (PREDATOR_SPAWN_CHANCE >= rng.nextFloat()) {
+          s = (byte) FOX.ordinal();
         } else {
-          s = (byte) CreatureType.RABBIT.ordinal();
+          s = (byte) RABBIT.ordinal();
         }
-        creatureStore.species()[idx] = s;
-        creatureStore.freeList()[idx] = 1;
+        creatureStore.species()[creatureId] = s;
       }
     }
+    log.info("Spawned {} creatures", spawnedCreaturesCount);
     return creatureStore;
   }
 }

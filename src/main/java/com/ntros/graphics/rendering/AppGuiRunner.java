@@ -4,7 +4,6 @@ import com.ntros.core.control.IntentTranslator;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.graphics.rendering.panel.*;
 import com.ntros.graphics.rendering.panel.sim.WorldSimPanel;
-import com.ntros.keyboard.WorldSimKeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +30,7 @@ public final class AppGuiRunner {
   public AppGuiRunner(
       int windowWidth,
       int windowHeight,
+      long seed,
       Consumer<TerrainGenerationSettings>
           genCallback, // callback function to trigger world generation
       IntentTranslator intentTranslator) {
@@ -50,11 +50,9 @@ public final class AppGuiRunner {
     // screen controller holds the panel and displays based on screen id
     screenController = new ScreenController(screens, cardLayout);
     MainMenuPanel mainMenuPanel = new MainMenuPanel(screenController);
-    worldSetupPanel = new WorldSetupPanel(screenController, genCallback);
-    worldSimPanel = new WorldSimPanel(screenController);
+    worldSetupPanel = new WorldSetupPanel(screenController, genCallback, seed);
+    worldSimPanel = new WorldSimPanel(screenController, intentTranslator);
     pauseMenuPanel = new PauseMenuPanel(screenController);
-
-    worldSimPanel.addKeyListener(new WorldSimKeyListener(intentTranslator));
 
     // add panels to the screen controller panel
     screens.add(mainMenuPanel, MAIN_MENU.name());

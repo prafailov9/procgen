@@ -12,9 +12,15 @@ class AppGuiRunnerTest {
 
   @BeforeEach
   public void setup() {
-    SwingUtilities.invokeLater(() -> runner =
-            new AppGuiRunner(
-                    1280, 720, _ -> System.out.println("Hello"), new SwappableIntentTranslator()));
+    SwingUtilities.invokeLater(
+        () ->
+            runner =
+                new AppGuiRunner(
+                    1280,
+                    720,
+                    1,
+                    _ -> System.out.println("Hello"),
+                    new SwappableIntentTranslator()));
   }
 
   @Test

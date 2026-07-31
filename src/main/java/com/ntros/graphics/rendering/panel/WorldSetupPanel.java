@@ -23,7 +23,7 @@ public class WorldSetupPanel extends AbstractScreenPanel {
   private static final Logger log = LoggerFactory.getLogger(WorldSetupPanel.class);
 
   private static final String WORLD_SIZES_MENU_NAMES_TEMPLATE = "%s (%s x %s)";
-
+  private final long seed;
   // world dimensions in tiles, independent of the window size
   private final Consumer<TerrainGenerationSettings> generationHandler;
   private final JTextField seedField = new JTextField(20);
@@ -32,9 +32,11 @@ public class WorldSetupPanel extends AbstractScreenPanel {
   private Dimensions2d selectedWorldSize;
 
   public WorldSetupPanel(
-      ScreenController screenController, Consumer<TerrainGenerationSettings> generationHandler) {
+      ScreenController screenController,
+      Consumer<TerrainGenerationSettings> generationHandler,
+      long seed) {
     super(screenController);
-
+    this.seed = seed;
     this.generationHandler = generationHandler;
 
     buildUi();
@@ -50,9 +52,9 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
     title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-    seedField.setText(String.valueOf(Main.SYSTEM_SEED));
+    seedField.setText(String.valueOf(seed));
     seedField.setMaximumSize(new Dimension(300, 32));
-    Random rng = new Random(Main.SYSTEM_SEED);
+    Random rng = new Random(seed);
     JButton randomSeedButton = new JButton("Random Seed");
     randomSeedButton.setAlignmentX(Component.CENTER_ALIGNMENT);
     randomSeedButton.addActionListener(event -> seedField.setText(Long.toString(rng.nextLong())));

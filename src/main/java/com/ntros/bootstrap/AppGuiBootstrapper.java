@@ -9,9 +9,12 @@ import com.ntros.core.clock.SimClock;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.control.ChannelIntentTranslator;
 import com.ntros.core.control.SwappableIntentTranslator;
+import com.ntros.core.updater.Actor;
+import com.ntros.core.updater.StateActor;
 import com.ntros.core.world.World;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.WorldSnapshot;
+import com.ntros.ecs.system.BiomassGrowthSystem;
 import com.ntros.generator.GenerationWorker;
 import com.ntros.graphics.rendering.AppGuiRunner;
 import com.ntros.graphics.rendering.StateUIRenderer;
@@ -19,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.ntros.graphics.ScreenType.SIMULATION;
@@ -39,7 +43,7 @@ public final class AppGuiBootstrapper {
   private AppGuiRunner appGuiRunner;
   private SimulationController simulationController;
 
-  public void bootstrapApplication() {
+  public void bootstrapApplication(long seed) {
     // build AND show on the EDT: Swing components must be created there, not just displayed
     SwingUtilities.invokeLater(
         () -> {
@@ -47,6 +51,7 @@ public final class AppGuiBootstrapper {
               new AppGuiRunner(
                   AppConstants.MAIN_WINDOW_WIDTH,
                   AppConstants.MAIN_WINDOW_HEIGHT,
+                  seed,
                   this::onGenerationRequested,
                   intentTranslator);
           appGuiRunner.showMainWindow();
@@ -94,10 +99,14 @@ public final class AppGuiBootstrapper {
     CommandChannel channel = new CommandChannel(COMMAND_QUEUE_CAPACITY);
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
+
+    // Create actor
+    Actor actor = new StateActor(List.of(new BiomassGrowthSystem(world.getSeed())));
+
     // The State Updater
     log.info("Initialising State Processor...");
     WorldStateProcessor worldStateProcessor =
-        new WorldStateProcessor(world, clock, channel, latestSnapshot, token);
+        new WorldStateProcessor(world, clock, actor, channel, latestSnapshot, token);
     log.info("State Processor initialized.");
     // The UI Updater
     StateUIRenderer renderer = new StateUIRenderer(appGuiRunner.getWorldSimPanel(), latestSnapshot);

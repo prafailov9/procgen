@@ -5,10 +5,6 @@ import com.ntros.core.world.terrain.Tile;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.generator.Terrain;
 
-import java.util.Arrays;
-
-import static com.ntros.core.world.terrain.Tile.EMPTY;
-
 /**
  * Representation of the 2D Simulation World. Updated by the StateProcessor, displayed by the
  * StateRenderer. Houses all visible and/or interactable game objects.
@@ -16,6 +12,7 @@ import static com.ntros.core.world.terrain.Tile.EMPTY;
 public final class World {
 
   private final int width, height, size;
+  private final long seed;
   // flat array representing a 2d grid, for faster cache access
   // tiles-level data
   private final byte[] terrain;
@@ -24,29 +21,15 @@ public final class World {
   /** contributes to biomass growth */
   private final float[] moisture;
 
-  private final byte[] biomass;
+  private final float[] biomass;
   private final byte[] lightLevel;
   // TODO: add other game objects Struct-of-Arrays style.
   private final TerrainCodec terrainCodec;
 
-  private int entityId;
-
-  private World(int width, int height) {
+  private World(int width, int height, long seed, byte[] terrain, float[] biomass) {
     this.width = width;
     this.height = height;
-    size = width * height;
-    terrain = new byte[size];
-    elevation = new float[size];
-    moisture = new float[size];
-    lightLevel = new byte[size];
-    biomass = new byte[size];
-    terrainCodec = new TerrainCodec();
-    Arrays.fill(terrain, terrainCodec.encodeTile(EMPTY));
-  }
-
-  private World(int width, int height, byte[] terrain, byte[] biomass) {
-    this.width = width;
-    this.height = height;
+    this.seed = seed;
     size = width * height;
     this.terrain = terrain;
     this.biomass = biomass;
@@ -56,13 +39,8 @@ public final class World {
     terrainCodec = new TerrainCodec();
   }
 
-  public static World of(int width, int height) {
-    validateDimensions(width, height);
-    return new World(width, height);
-  }
-
   public static World of(
-      WorldTerrainSettings worldTerrainSettings, Terrain terrain, byte[] biomass) {
+      WorldTerrainSettings worldTerrainSettings, Terrain terrain, float[] biomass) {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
@@ -72,11 +50,12 @@ public final class World {
     }
     validateDimensions(dimensions.width(), dimensions.height());
     validateTerrain(dimensions.width(), dimensions.height(), terrain.tiles());
-    return new World(dimensions.width(), dimensions.height(), terrain.tiles(), biomass);
-  }
-
-  public int createEntity() {
-    return entityId++;
+    return new World(
+        dimensions.width(),
+        dimensions.height(),
+        worldTerrainSettings.seed(),
+        terrain.tiles(),
+        biomass);
   }
 
   public int getWidth() {
@@ -85,6 +64,10 @@ public final class World {
 
   public int getHeight() {
     return height;
+  }
+
+  public long getSeed() {
+    return seed;
   }
 
   public Tile getTile(int x, int y) {
@@ -111,7 +94,7 @@ public final class World {
     return lightLevel;
   }
 
-  public byte[] getBiomass() {
+  public float[] getBiomass() {
     return biomass;
   }
 

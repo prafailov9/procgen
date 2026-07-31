@@ -35,6 +35,20 @@ public class CreatureStore {
     }
   }
 
+  public int spawn() {
+    if (freeCount == 0) {
+      return -1;
+    }
+    int creatureId = freeList[--freeCount];
+    alive.set(creatureId);
+    return creatureId;
+  }
+
+  public void kill(int creatureId) {
+    alive.clear(creatureId);
+    freeList[freeCount++] = creatureId;
+  }
+
   public float[] energy() {
     return energy;
   }
@@ -47,19 +61,11 @@ public class CreatureStore {
     return species;
   }
 
-  public int[] freeList() {
-    return freeList;
-  }
-
   public float[] x() {
     return x;
   }
 
   public float[] y() {
     return y;
-  }
-
-  public BitSet alive() {
-    return alive;
   }
 }

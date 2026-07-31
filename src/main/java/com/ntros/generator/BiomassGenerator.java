@@ -2,7 +2,6 @@ package com.ntros.generator;
 
 import static com.ntros.AppConstants.CLUSTER_BIOMASS_CHANCE;
 import static com.ntros.AppConstants.BIOMASS_SPAWN_CHANCE;
-import static com.ntros.Main.SYSTEM_SEED;
 
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
@@ -18,10 +17,10 @@ import java.util.Random;
  */
 public class BiomassGenerator {
   private final Terrain terrain;
-  private final Random rng = new Random(SYSTEM_SEED);
+  private final Random rng;
   private final TerrainCodec terrainCodec = new TerrainCodec();
 
-  public BiomassGenerator(Terrain terrain) {
+  public BiomassGenerator(Terrain terrain, long seed) {
     if (terrain == null) {
       throw new IllegalArgumentException("Empty terrain");
     }
@@ -33,15 +32,16 @@ public class BiomassGenerator {
               "Invalid terrain data lengths. tilesLen=%s; elevationLen=%s; moistureLen=%s",
               terrain.tiles().length, terrain.elevation().length, terrain.moisture().length));
     }
+    rng = new Random(seed + 1);
     this.terrain = terrain;
   }
 
   // generates food for herbivores
-  public byte[] generateBiomass() {
+  public float[] generateBiomass() {
     var dimensions = terrain.dimensions2d();
     int width = dimensions.width();
     int height = dimensions.height();
-    byte[] biomass = new byte[width * height];
+    float[] biomass = new float[width * height];
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         int idx = y * width + x;
@@ -62,7 +62,7 @@ public class BiomassGenerator {
     return biomass;
   }
 
-  private void generateFoodCluster(int x, int y, byte[] biomass) {
+  private void generateFoodCluster(int x, int y, float[] biomass) {
     // select random cluster length
     int width = terrain.dimensions2d().width();
     int radius = rng.nextInt(2, 7);
@@ -86,10 +86,10 @@ public class BiomassGenerator {
     }
   }
 
-  private void tryGrowFood(int idx, byte[] biomass) {
+  private void tryGrowFood(int idx, float[] biomass) {
     if (canGrowFood(idx, biomass)) {
-      int qty = rng.nextInt(1, 10);
-      biomass[idx] = (byte) qty;
+      float qty = rng.nextFloat(1.0f, 52.0f);
+      biomass[idx] = qty;
     }
   }
 
@@ -101,8 +101,8 @@ public class BiomassGenerator {
   }
 
   /** // skip if current already has a value // skip non-forest/grass */
-  private boolean canGrowFood(int idx, byte[] biomass) {
+  private boolean canGrowFood(int idx, float[] biomass) {
     Tile tile = terrainCodec.decode(terrain.tiles()[idx]);
-    return (tile == Tile.GRASS || tile == Tile.FOREST) && (int) biomass[idx] == 0;
+    return (tile == Tile.GRASS || tile == Tile.FOREST) && biomass[idx] == 0;
   }
 }

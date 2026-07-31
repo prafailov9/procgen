@@ -6,6 +6,7 @@ import com.ntros.core.channel.Channel;
 import com.ntros.core.command.ChangeSpeedCommand;
 import com.ntros.core.command.Command;
 import com.ntros.core.clock.TickingClock;
+import com.ntros.core.updater.Actor;
 import com.ntros.core.world.World;
 import com.ntros.core.world.WorldSnapshot;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ public class WorldStateProcessor implements Runnable {
 
   private final World world;
   private final TickingClock clock;
+  private final Actor actor;
   private final Channel channel;
   // lock-free, thread-safe cache for world updates
   private final AtomicReference<WorldSnapshot> latestSnapshot;
@@ -55,11 +57,13 @@ public class WorldStateProcessor implements Runnable {
   public WorldStateProcessor(
       World world,
       TickingClock clock,
+      Actor actor,
       Channel channel,
       AtomicReference<WorldSnapshot> latestSnapshot,
       CancellationToken token) {
     this.world = world;
     this.clock = clock;
+    this.actor = actor;
     this.channel = channel;
     this.latestSnapshot = latestSnapshot;
     this.token = token;
@@ -172,7 +176,7 @@ public class WorldStateProcessor implements Runnable {
   }
 
   private void update() {
-    // TODO: advance world state (world.step()) once entities/agents exist
+    actor.act(world, clock.currentTime());
     clock.tick();
   }
 

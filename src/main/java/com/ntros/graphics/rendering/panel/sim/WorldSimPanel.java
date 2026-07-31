@@ -2,6 +2,8 @@ package com.ntros.graphics.rendering.panel.sim;
 
 import static com.ntros.graphics.rendering.panel.sim.WorldColorsUtils.*;
 
+import com.ntros.core.SimulationSpeed;
+import com.ntros.core.control.IntentTranslator;
 import com.ntros.core.world.WorldSnapshot;
 import com.ntros.graphics.rendering.panel.AbstractScreenPanel;
 import com.ntros.graphics.rendering.panel.ScreenController;
@@ -25,12 +27,17 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private static final double ZOOM_FACTOR = 1.15;
   private static final double MAX_RELATIVE_ZOOM = 74.0;
   private static final double KEYBOARD_PAN_STEP = 74.0;
-
+  private static final int ALPHA_RGB_MAX_VALUE = 256;
   // pixels per tile
   // latest snapshot received from the sim; only ever replaced, never mutated
   private WorldSnapshot snapshot;
   // prebuilt rendering image of the snapshot
   private BufferedImage cachedImage;
+  private final Ellipse2D cacheBiomassDot = new Ellipse2D.Double();
+
+  // cached biomass color-range
+  private static final Color[] FOOD_ALPHA_RAMP = buildFoodAlphaRamp();
+
   // reused pixel buffer for image rebuilds
   private int[] pixelBuffer;
   private double scale = 1.0;
@@ -39,7 +46,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private double panY;
   private boolean viewInitialized;
 
-  public WorldSimPanel(ScreenController screenController) {
+  public WorldSimPanel(ScreenController screenController, IntentTranslator intentTranslator) {
     super(screenController);
 
     WorldSimMouseHandler worldSimMouseHandler = new WorldSimMouseHandler(this);
@@ -50,10 +57,12 @@ public class WorldSimPanel extends AbstractScreenPanel {
     setFocusable(true);
     setBackground(Color.BLACK);
 
+    // all keyboard input rides InputMap bindings (WHEN_IN_FOCUSED_WINDOW), so it works
+    // regardless of which component holds focus; isShowing() guards the hidden card
     installPanKeyBindings();
+    installSpeedKeyBindings(intentTranslator);
 
-    // CardLayout fires componentShown when this card becomes the visible one; key listeners only
-    // receive events while the panel holds keyboard focus, so grab it on every switch
+    // CardLayout fires componentShown when this card becomes the visible one
     addComponentListener(
         new ComponentAdapter() {
           @Override
@@ -117,7 +126,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
   }
 
   private void drawBiomassDots(Graphics2D g2) {
-    byte[] biomass = snapshot.biomass();
+    float[] biomass = snapshot.biomass();
     int worldWidth = snapshot.width();
     int worldHeight = snapshot.height();
 
@@ -138,18 +147,17 @@ public class WorldSimPanel extends AbstractScreenPanel {
       int rowOffset = tileY * worldWidth;
 
       for (int tileX = firstX; tileX <= lastX; tileX++) {
-        int quantity = Byte.toUnsignedInt(biomass[rowOffset + tileX]);
+        float quantity = biomass[rowOffset + tileX];
 
         if (quantity == 0) {
           continue;
         }
 
-        int alpha = Math.min(255, 100 + quantity * 17);
-        int argb = (alpha << 24) | (FOOD_COLOR_HEX & 0x00FF_FFFF);
-
-        g2.setColor(new Color(argb, true));
-
-        g2.fill(new Ellipse2D.Double(tileX + inset, tileY + inset, diameter, diameter));
+        // modify inputs by the biomass quantity, output already cached
+        int alpha = (int) Math.min(255f, 100 + quantity * 17);
+        g2.setColor(FOOD_ALPHA_RAMP[alpha]);
+        cacheBiomassDot.setFrame(tileX + inset, tileY + inset, diameter, diameter);
+        g2.fill(cacheBiomassDot);
       }
     }
   }
@@ -284,6 +292,15 @@ public class WorldSimPanel extends AbstractScreenPanel {
     cachedImage.setRGB(0, 0, width, height, pixelBuffer, 0, width);
   }
 
+  private static Color[] buildFoodAlphaRamp() {
+    Color[] ramp = new Color[256];
+    int rgb = FOOD_COLOR_HEX & 0x00FF_FFFF;
+    for (int alpha = 0; alpha < 256; alpha++) {
+      ramp[alpha] = new Color((alpha << 24) | rgb, true);
+    }
+    return ramp;
+  }
+
   /// KEY Bindings for panning
   private void installPanKeyBindings() {
     // Camera semantics:
@@ -311,6 +328,36 @@ public class WorldSimPanel extends AbstractScreenPanel {
                 // Prevent the hidden simulation card from reacting.
                 if (isShowing()) {
                   panBy(dx, dy);
+                }
+              }
+            });
+  }
+
+  /// KEY Bindings for simulation speed
+  private void installSpeedKeyBindings(IntentTranslator intentTranslator) {
+    bindSpeedKey(intentTranslator, KeyEvent.VK_1, "speed-x1", SimulationSpeed.X1);
+    bindSpeedKey(intentTranslator, KeyEvent.VK_2, "speed-x5", SimulationSpeed.X5);
+    bindSpeedKey(intentTranslator, KeyEvent.VK_3, "speed-x25", SimulationSpeed.X25);
+    bindSpeedKey(intentTranslator, KeyEvent.VK_4, "speed-x250", SimulationSpeed.X250);
+    bindSpeedKey(intentTranslator, KeyEvent.VK_5, "speed-max", SimulationSpeed.MAX);
+    bindSpeedKey(intentTranslator, KeyEvent.VK_0, "speed-paused", SimulationSpeed.PAUSED);
+  }
+
+  private void bindSpeedKey(
+      IntentTranslator intentTranslator, int keyCode, String actionName, SimulationSpeed speed) {
+
+    getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        .put(KeyStroke.getKeyStroke(keyCode, 0), actionName);
+
+    getActionMap()
+        .put(
+            actionName,
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(ActionEvent e) {
+                // Prevent the hidden simulation card from reacting.
+                if (isShowing()) {
+                  intentTranslator.changeSpeed(speed);
                 }
               }
             });

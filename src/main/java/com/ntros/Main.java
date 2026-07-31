@@ -4,14 +4,14 @@ import com.ntros.bootstrap.AppGuiBootstrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
 
 public class Main {
-    public static final long SYSTEM_SEED = ThreadLocalRandom.current().nextLong(1, 100);
   private static final Logger log = LoggerFactory.getLogger(Main.class);
 
   static void main() {
-      log.info("Generated seed: {}", SYSTEM_SEED);
+      long seed = new Random().nextLong();
+      log.info("Generated seed: {}", seed);
 
     AppGuiBootstrapper bootstrapper = new AppGuiBootstrapper();
 
@@ -27,6 +27,6 @@ public class Main {
                   }
                 }));
     log.info("Starting ProcGen...");
-    bootstrapper.bootstrapApplication();
+    bootstrapper.bootstrapApplication(seed);
   }
 }
