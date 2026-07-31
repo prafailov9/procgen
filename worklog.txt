@@ -19,3 +19,4 @@ II. Current Goals:
 - Implement an animal entity with age. Verify aging is relative to the Simulation Speed.
 - Implement Day/Night cycle.
 - Implement Seasons cycle.
+- Add an Observability layers. Its goal is to track statistics across all systems
