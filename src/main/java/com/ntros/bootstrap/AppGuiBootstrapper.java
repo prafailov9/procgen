@@ -13,7 +13,6 @@ import com.ntros.core.world.World;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.WorldSnapshot;
 import com.ntros.generator.GenerationWorker;
-import com.ntros.generator.NoiseTerrainGenerator;
 import com.ntros.graphics.rendering.AppGuiRunner;
 import com.ntros.graphics.rendering.StateUIRenderer;
 import org.slf4j.Logger;
@@ -46,8 +45,8 @@ public final class AppGuiBootstrapper {
         () -> {
           appGuiRunner =
               new AppGuiRunner(
-                  AppConstants.WIDTH,
-                  AppConstants.HEIGHT,
+                  AppConstants.MAIN_WINDOW_WIDTH,
+                  AppConstants.MAIN_WINDOW_HEIGHT,
                   this::onGenerationRequested,
                   intentTranslator);
           appGuiRunner.showMainWindow();

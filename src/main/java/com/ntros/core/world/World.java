@@ -12,14 +12,17 @@ import static com.ntros.core.world.terrain.Tile.EMPTY;
  * Representation of the 2D Simulation World. Updated by the StateProcessor, displayed by the
  * StateRenderer. Houses all visible and/or interactable game objects.
  */
-public class World {
+public final class World {
 
   private final int width, height, size;
   // flat array representing a 2d grid, for faster cache access
   // terrain-level data
   private final byte[] terrain;
-  private final byte[] elevation;
-  private final byte[] moisture;
+  private final float[] elevation;
+
+  /** contributes to biomass growth */
+  private final float[] moisture;
+
   private final byte[] lightLevel;
   // TODO: add other game objects Struct-of-Arrays style.
   private final TerrainCodec terrainCodec;
@@ -31,8 +34,8 @@ public class World {
     this.height = height;
     size = width * height;
     terrain = new byte[size];
-    elevation = new byte[size];
-    moisture = new byte[size];
+    elevation = new float[size];
+    moisture = new float[size];
     lightLevel = new byte[size];
 
     terrainCodec = new TerrainCodec();
@@ -44,8 +47,8 @@ public class World {
     this.height = height;
     size = width * height;
     this.terrain = terrain;
-    elevation = new byte[size];
-    moisture = new byte[size];
+    elevation = new float[size];
+    moisture = new float[size];
     lightLevel = new byte[size];
     terrainCodec = new TerrainCodec();
   }
@@ -65,9 +68,13 @@ public class World {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
-    validateDimensions(worldTerrainSettings.width(), worldTerrainSettings.height());
-    validateTerrain(worldTerrainSettings.width(), worldTerrainSettings.height(), terrain);
-    return new World(worldTerrainSettings.width(), worldTerrainSettings.height(), terrain);
+    var dimensions = worldTerrainSettings.dimensions2d();
+    if (dimensions == null) {
+      throw new IllegalArgumentException("Empty dimensions");
+    }
+    validateDimensions(dimensions.width(), dimensions.height());
+    validateTerrain(dimensions.width(), dimensions.height(), terrain);
+    return new World(dimensions.width(), dimensions.height(), terrain);
   }
 
   public int createEntity() {
@@ -94,11 +101,11 @@ public class World {
     return size;
   }
 
-  public byte[] getElevation() {
+  public float[] getElevation() {
     return elevation;
   }
 
-  public byte[] getMoisture() {
+  public float[] getMoisture() {
     return moisture;
   }
 

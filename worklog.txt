@@ -1,6 +1,7 @@
 I. Current issues:
 1. [FIXED] Swing window is tiny and not responding to different values for width and height. WorldScreen dimensions getter was returning hardcoded 800x800 values. Swapped them with world dimensions.
 2. Zooming in/out is not working. Zooming in is needed to select a starting territory and further generation of resources on top of the terrain.
+3. Let the player draw on the world, once a generated world is presented to them, to refine it as they wish before the simulation starts.
 II. Current Goals:
 1. Done:
 - [DONE] have a MVP SpeedChange command.

@@ -1,6 +1,6 @@
 package com.ntros.graphics.rendering.panel;
 
-import com.ntros.AppConstants;
+import com.ntros.Dimensions2d;
 import com.ntros.Main;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
@@ -20,9 +20,6 @@ public class WorldSetupPanel extends AbstractScreenPanel {
   private static final Logger log = LoggerFactory.getLogger(WorldSetupPanel.class);
 
   // world dimensions in tiles, independent of the window size
-  private static final int WORLD_WIDTH = 1920;
-  private static final int WORLD_HEIGHT = 1080;
-
   private final Consumer<TerrainGenerationSettings> generationHandler;
   private final JTextField seedField = new JTextField(20);
   private final JButton generateButton = new JButton("Generate World");
@@ -49,11 +46,10 @@ public class WorldSetupPanel extends AbstractScreenPanel {
 
     seedField.setText(String.valueOf(Main.SEED));
     seedField.setMaximumSize(new Dimension(300, 32));
-
+    Random rng = new Random(Main.SEED);
     JButton randomSeedButton = new JButton("Random Seed");
     randomSeedButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-    randomSeedButton.addActionListener(
-        event -> seedField.setText(Long.toString(new Random().nextLong())));
+    randomSeedButton.addActionListener(event -> seedField.setText(Long.toString(rng.nextLong())));
 
     generateButton.setAlignmentX(Component.CENTER_ALIGNMENT);
     generateButton.addActionListener(event -> requestGeneration());
@@ -94,7 +90,7 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     // TODO: let the player tune the Noise settings
     TerrainGenerationSettings settings =
         new TerrainGenerationSettings(
-            new WorldTerrainSettings(WORLD_WIDTH, WORLD_HEIGHT, seed),
+            new WorldTerrainSettings(Dimensions2d.ofBiggerWorld(), seed),
             new NoiseSettings(0.0025f, 5, 0.0032f, 3, 0.005f, 5));
 
     // TODO: add proceed or regenerate buttons

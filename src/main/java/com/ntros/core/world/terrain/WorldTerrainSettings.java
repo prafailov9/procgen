@@ -1,3 +1,5 @@
 package com.ntros.core.world.terrain;
 
-public record WorldTerrainSettings(int width, int height, long seed) {}
+import com.ntros.Dimensions2d;
+
+public record WorldTerrainSettings(Dimensions2d dimensions2d, long seed) {}

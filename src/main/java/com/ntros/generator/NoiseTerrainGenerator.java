@@ -1,7 +1,6 @@
 package com.ntros.generator;
 
 import com.ntros.core.world.terrain.TerrainClassifier;
-import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.generator.fastnoiselite.FastNoiseLite;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
@@ -17,14 +16,17 @@ public class NoiseTerrainGenerator {
   private final FastNoiseLite ridgedNoise;
 
   private final byte[] terrain;
+  private final float[] elevation;
+  private final float[] moisture;
   private final TerrainClassifier terrainClassifier;
 
   public NoiseTerrainGenerator(TerrainGenerationSettings settings) {
     validateSettings(settings);
     var terrainSettings = settings.worldTerrainSettings();
+    var dimensions = terrainSettings.dimensions2d();
     this(
-        terrainSettings.width(),
-        terrainSettings.height(),
+        dimensions.width(),
+        dimensions.height(),
         terrainSettings.seed(),
         settings.noiseSettings());
   }
@@ -57,17 +59,22 @@ public class NoiseTerrainGenerator {
 
     int size = width * height;
     terrain = new byte[size];
+    elevation = new float[size];
+    moisture = new float[size];
   }
 
   public byte[] generateTerrain() {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
+        int idx = y * width + x;
         float e = normalize(elevationNoise.GetNoise(x, y));
         float m = normalize(moistureNoise.GetNoise(x, y));
         float r = normalize(ridgedNoise.GetNoise(x, y));
         float t = smoothstep(0.70f, 0.95f, e); // 0 in lowlands, ramps toward peaks
         float combined = e + (r - 0.5f) * 0.25f * t; // adds ridgelines, keeps peaks high
-        terrain[y * width + x] = terrainClassifier.classify(combined, m);
+        terrain[idx] = terrainClassifier.classify(combined, m);
+        elevation[idx] = e;
+        moisture[idx] = m;
       }
     }
     return terrain;
@@ -104,11 +111,15 @@ public class NoiseTerrainGenerator {
       throw new IllegalArgumentException("Empty noise gen settings");
     }
     var terrainSettings = settings.worldTerrainSettings();
-    if (terrainSettings.width() <= 0 || terrainSettings.height() <= 0) {
+    var dimensions = terrainSettings.dimensions2d();
+    if (dimensions == null) {
+      throw new IllegalArgumentException("Empty terrain dimensions");
+    }
+    if (dimensions.width() <= 0 || dimensions.height() <= 0) {
       throw new IllegalArgumentException(
           String.format(
               "Invalid terrain width/height. width: %s; height: %s",
-              terrainSettings.width(), terrainSettings.height()));
+              dimensions.width(), dimensions.height()));
     }
   }
 }

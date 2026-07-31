@@ -1,6 +1,6 @@
 package com.ntros.core.processor;
 
-import com.ntros.AppConstants;
+import com.ntros.Dimensions2d;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationSpeed;
 import com.ntros.core.channel.Channel;
@@ -17,12 +17,9 @@ import com.ntros.generator.fastnoiselite.NoiseSettings;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class WorldStateProcessorTest {
 
@@ -66,8 +63,9 @@ class WorldStateProcessorTest {
   }
 
   private World generateWorld() {
+    Dimensions2d d = Dimensions2d.ofSmallWorld();
     WorldTerrainSettings worldTerrainSettings =
-        new WorldTerrainSettings(AppConstants.WIDTH, AppConstants.HEIGHT, 1);
+        new WorldTerrainSettings(d, 1);
     TerrainGenerationSettings terrainGenerationSettings =
         new TerrainGenerationSettings(worldTerrainSettings, NoiseSettings.ofDefault());
     NoiseTerrainGenerator noiseTerrainGenerator =
@@ -75,6 +73,6 @@ class WorldStateProcessorTest {
 
     var terrain = noiseTerrainGenerator.generateTerrain();
 
-    return World.of(worldTerrainSettings.width(), worldTerrainSettings.height(), terrain);
+    return World.of(d.width(), d.height(), terrain);
   }
 }

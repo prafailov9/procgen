@@ -15,7 +15,7 @@ public class MainMenuPanel extends AbstractScreenPanel {
 
   public MainMenuPanel(ScreenController screenController) {
     super(screenController);
-    setPreferredSize(new Dimension(AppConstants.WIDTH, AppConstants.HEIGHT));
+    setPreferredSize(new Dimension(AppConstants.MAIN_WINDOW_WIDTH, AppConstants.MAIN_WINDOW_HEIGHT));
     setLayout(new GridBagLayout());
     setOpaque(true);
 
