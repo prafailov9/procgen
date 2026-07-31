@@ -1,6 +1,6 @@
 package com.ntros.core.processor;
 
-import com.ntros.Dimensions2d;
+import com.ntros.graphics.rendering.data.Dimensions2d;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationSpeed;
 import com.ntros.core.channel.Channel;
