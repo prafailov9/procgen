@@ -24,6 +24,7 @@ public final class World {
   /** contributes to biomass growth */
   private final float[] moisture;
 
+  private final byte[] biomass;
   private final byte[] lightLevel;
   // TODO: add other game objects Struct-of-Arrays style.
   private final TerrainCodec terrainCodec;
@@ -38,16 +39,17 @@ public final class World {
     elevation = new float[size];
     moisture = new float[size];
     lightLevel = new byte[size];
-
+    biomass = new byte[size];
     terrainCodec = new TerrainCodec();
     Arrays.fill(terrain, terrainCodec.encodeTile(EMPTY));
   }
 
-  private World(int width, int height, byte[] terrain) {
+  private World(int width, int height, byte[] terrain, byte[] biomass) {
     this.width = width;
     this.height = height;
     size = width * height;
     this.terrain = terrain;
+    this.biomass = biomass;
     elevation = new float[size];
     moisture = new float[size];
     lightLevel = new byte[size];
@@ -59,13 +61,8 @@ public final class World {
     return new World(width, height);
   }
 
-  public static World of(int width, int height, Terrain terrain) {
-    validateDimensions(width, height);
-    validateTerrain(width, height, terrain.tiles());
-    return new World(width, height, terrain.tiles());
-  }
-
-  public static World of(WorldTerrainSettings worldTerrainSettings, Terrain terrain) {
+  public static World of(
+      WorldTerrainSettings worldTerrainSettings, Terrain terrain, byte[] biomass) {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
@@ -75,7 +72,7 @@ public final class World {
     }
     validateDimensions(dimensions.width(), dimensions.height());
     validateTerrain(dimensions.width(), dimensions.height(), terrain.tiles());
-    return new World(dimensions.width(), dimensions.height(), terrain.tiles());
+    return new World(dimensions.width(), dimensions.height(), terrain.tiles(), biomass);
   }
 
   public int createEntity() {
@@ -112,6 +109,10 @@ public final class World {
 
   public byte[] getLightLevel() {
     return lightLevel;
+  }
+
+  public byte[] getBiomass() {
+    return biomass;
   }
 
   public byte getEncodedTile(int x, int y) {

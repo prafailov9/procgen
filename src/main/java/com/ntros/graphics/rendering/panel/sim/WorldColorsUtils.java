@@ -20,6 +20,9 @@ public class WorldColorsUtils {
   public static final Color MOUNTAIN_COLOR = new Color(227, 227, 218);
   public static final Color EMPTY_COLOR = Color.BLACK;
 
+  // TODO: Extend with different types
+  public static final int FOOD_COLOR_HEX = 0x00E6FF59;
+
   // tiles bytes are Tile ordinals; index straight into this lookup when building the image
   public static final int[] TILE_RGB = buildTileRgbLookup();
 

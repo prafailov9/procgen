@@ -1,10 +1,8 @@
 package com.ntros;
 
-import com.ntros.core.world.terrain.Tile;
 import com.ntros.graphics.rendering.data.Dimensions2d;
 import com.ntros.graphics.rendering.data.WorldSize;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.ntros.graphics.rendering.data.Dimensions2d.*;
@@ -15,6 +13,8 @@ public class AppConstants {
   public static final int MAIN_WINDOW_HEIGHT = 1440;
   public static final String TILE_ENCODINGS_FILEPATH = "/tile-encodings.properties";
   public static final int CREATURES_CAPACITY = 500; // low for now
+  public static final float CLUSTER_BIOMASS_CHANCE = 0.029f; // decides if spawning in clusters
+  public static final float BIOMASS_SPAWN_CHANCE = 0.012f; // decides whether food spawns at all
 
   public static Map<WorldSize, Dimensions2d> WORLD_SIZES_ALLOWLIST =
       Map.of(

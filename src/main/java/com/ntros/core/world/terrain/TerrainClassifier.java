@@ -1,5 +1,7 @@
 package com.ntros.core.world.terrain;
 
+import com.ntros.generator.Terrain;
+
 import static com.ntros.core.world.terrain.Tile.*;
 import static com.ntros.core.world.terrain.Tile.FOREST;
 import static com.ntros.core.world.terrain.Tile.GRASS;
@@ -27,4 +29,37 @@ public final class TerrainClassifier {
     if (elevation < 0.88f) return terrainCodec.encodeTile(HILL);
     return terrainCodec.encodeTile(MOUNTAIN);
   }
+
+  public float spawnChance(int x, int y, Terrain terrain) {
+    int idx = y * terrain.dimensions2d().width() + x;
+
+    Tile tile = terrainCodec.decode(terrain.tiles()[idx]);
+    // TODO: figure out how to make moisture and elevation matter for spawn
+    //    float moisture = terrain.moisture()[idx];
+    //    float elevation = terrain.elevation()[idx];
+    switch (tile) {
+      case SAND -> {
+        return 0.21f;
+      }
+      case FOREST -> {
+        return 0.52f;
+      }
+      case GRASS -> {
+        return 0.55f;
+      }
+
+      case HILL -> {
+        return 0.18f;
+      }
+
+      case MOUNTAIN -> {
+        return 0.10f;
+      }
+
+      case null, default -> {
+        return 0.00f;
+      }
+    }
+  }
+
 }

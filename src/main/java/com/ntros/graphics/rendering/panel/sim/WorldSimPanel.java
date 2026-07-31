@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 
 /**
@@ -32,7 +33,6 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private BufferedImage cachedImage;
   // reused pixel buffer for image rebuilds
   private int[] pixelBuffer;
-
   private double scale = 1.0;
   private double coverScale = 1.0;
   private double panX;
@@ -100,18 +100,57 @@ public class WorldSimPanel extends AbstractScreenPanel {
     Graphics2D g2 = (Graphics2D) g.create();
 
     try {
+      // transform from world/tile coordinates to screen coordinates
+      g2.translate(panX, panY);
+      g2.scale(scale, scale);
+
+      // keep terrain tiles pixelated
       g2.setRenderingHint(
           RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
-      int x = (int) Math.round(panX);
-      int y = (int) Math.round(panY);
-      int width = Math.max(1, (int) Math.round(cachedImage.getWidth() * scale));
-      int height = Math.max(1, (int) Math.round(cachedImage.getHeight() * scale));
-
-      g2.drawImage(cachedImage, x, y, width, height, null);
+      g2.drawImage(cachedImage, 0, 0, null);
+      drawBiomassDots(g2);
     } finally {
       g2.dispose();
+    }
+  }
+
+  private void drawBiomassDots(Graphics2D g2) {
+    byte[] biomass = snapshot.biomass();
+    int worldWidth = snapshot.width();
+    int worldHeight = snapshot.height();
+
+    // Only inspect tiles currently visible on screen.
+    int firstX = Math.max(0, (int) Math.floor(-panX / scale));
+    int firstY = Math.max(0, (int) Math.floor(-panY / scale));
+
+    int lastX = Math.min(worldWidth - 1, (int) Math.ceil((getWidth() - panX) / scale));
+    int lastY = Math.min(worldHeight - 1, (int) Math.ceil((getHeight() - panY) / scale));
+
+    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+    // Each tile is 1x1 in world coordinates.
+    double diameter = 0.72;
+    double inset = (1.0 - diameter) / 2.0;
+
+    for (int tileY = firstY; tileY <= lastY; tileY++) {
+      int rowOffset = tileY * worldWidth;
+
+      for (int tileX = firstX; tileX <= lastX; tileX++) {
+        int quantity = Byte.toUnsignedInt(biomass[rowOffset + tileX]);
+
+        if (quantity == 0) {
+          continue;
+        }
+
+        int alpha = Math.min(255, 100 + quantity * 17);
+        int argb = (alpha << 24) | (FOOD_COLOR_HEX & 0x00FF_FFFF);
+
+        g2.setColor(new Color(argb, true));
+
+        g2.fill(new Ellipse2D.Double(tileX + inset, tileY + inset, diameter, diameter));
+      }
     }
   }
 
@@ -237,7 +276,9 @@ public class WorldSimPanel extends AbstractScreenPanel {
     }
 
     byte[] terrain = snapshot.terrain();
+
     for (int i = 0; i < terrain.length; i++) {
+      // color terrain
       pixelBuffer[i] = TILE_RGB[terrain[i]];
     }
     cachedImage.setRGB(0, 0, width, height, pixelBuffer, 0, width);

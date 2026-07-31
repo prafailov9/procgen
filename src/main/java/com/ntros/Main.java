@@ -7,11 +7,11 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class Main {
-    public static final long SEED = ThreadLocalRandom.current().nextLong(1, 100);
+    public static final long SYSTEM_SEED = ThreadLocalRandom.current().nextLong(1, 100);
   private static final Logger log = LoggerFactory.getLogger(Main.class);
 
   static void main() {
-      log.info("Generated seed: {}", SEED);
+      log.info("Generated seed: {}", SYSTEM_SEED);
 
     AppGuiBootstrapper bootstrapper = new AppGuiBootstrapper();
 

@@ -1,5 +1,6 @@
 package com.ntros.core.processor;
 
+import com.ntros.generator.BiomassGenerator;
 import com.ntros.graphics.rendering.data.Dimensions2d;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationSpeed;
@@ -64,15 +65,14 @@ class WorldStateProcessorTest {
 
   private World generateWorld() {
     Dimensions2d d = Dimensions2d.ofSmallWorld();
-    WorldTerrainSettings worldTerrainSettings =
-        new WorldTerrainSettings(d, 1);
+    WorldTerrainSettings worldTerrainSettings = new WorldTerrainSettings(d, 1);
     TerrainGenerationSettings terrainGenerationSettings =
         new TerrainGenerationSettings(worldTerrainSettings, NoiseSettings.ofDefault());
     NoiseTerrainGenerator noiseTerrainGenerator =
         new NoiseTerrainGenerator(terrainGenerationSettings);
 
     var terrain = noiseTerrainGenerator.generateTerrain();
-
-    return World.of(d.width(), d.height(), terrain);
+    var biomass = new BiomassGenerator(terrain).generateBiomass();
+    return World.of(worldTerrainSettings, terrain, biomass);
   }
 }

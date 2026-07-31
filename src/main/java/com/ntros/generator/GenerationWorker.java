@@ -30,9 +30,12 @@ public class GenerationWorker implements Lifecycle {
   private void generate() {
     try {
       log.info("starting generation with settings: {}", terrainGenerationSettings);
-      NoiseTerrainGenerator generator = new NoiseTerrainGenerator(terrainGenerationSettings);
-      var terrain = generator.generateTerrain();
-      worldPromise.complete(World.of(terrainGenerationSettings.worldTerrainSettings(), terrain));
+      var terrain = new NoiseTerrainGenerator(terrainGenerationSettings).generateTerrain();
+      var biomass = new BiomassGenerator(terrain).generateBiomass();
+      // spawner throws IOOB. TODO: fix
+      //      var creatureStore = new CreatureSpawner(terrain).spawnEntities();
+      worldPromise.complete(
+          World.of(terrainGenerationSettings.worldTerrainSettings(), terrain, biomass));
       log.info("Gen finished");
     } catch (Throwable ex) {
       worldPromise.completeExceptionally(ex);

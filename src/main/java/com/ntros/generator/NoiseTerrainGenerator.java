@@ -4,6 +4,7 @@ import com.ntros.core.world.terrain.TerrainClassifier;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.generator.fastnoiselite.FastNoiseLite;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
+import com.ntros.graphics.rendering.data.Dimensions2d;
 
 public class NoiseTerrainGenerator {
 
@@ -24,11 +25,7 @@ public class NoiseTerrainGenerator {
     validateSettings(settings);
     var terrainSettings = settings.worldTerrainSettings();
     var dimensions = terrainSettings.dimensions2d();
-    this(
-        dimensions.width(),
-        dimensions.height(),
-        terrainSettings.seed(),
-        settings.noiseSettings());
+    this(dimensions.width(), dimensions.height(), terrainSettings.seed(), settings.noiseSettings());
   }
 
   public NoiseTerrainGenerator(int width, int height, long seed, NoiseSettings settings) {
@@ -77,7 +74,7 @@ public class NoiseTerrainGenerator {
         moisture[idx] = m;
       }
     }
-    return new Terrain(terrain, elevation, moisture);
+    return new Terrain(terrain, elevation, moisture, new Dimensions2d(width, height));
   }
 
   private static float smoothstep(float a, float b, float x) {

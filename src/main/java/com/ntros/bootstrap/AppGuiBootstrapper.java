@@ -18,7 +18,7 @@ import com.ntros.graphics.rendering.StateUIRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.ntros.graphics.ScreenType.SIMULATION;

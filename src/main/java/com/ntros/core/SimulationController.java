@@ -19,7 +19,7 @@ public class SimulationController implements Lifecycle {
       CancellationToken cancellationToken) {
     token = cancellationToken;
     stateProcessorThread = new Thread(worldStateProcessor, "state-proc-1");
-    rendererTimer = new Timer(renderDelayMs, event -> renderer.run());
+    rendererTimer = new Timer(renderDelayMs, _ -> renderer.run());
   }
 
   @Override

@@ -1,6 +1,5 @@
 package com.ntros.graphics.rendering.panel;
 
-import com.ntros.AppConstants;
 import com.ntros.graphics.rendering.data.Dimensions2d;
 import com.ntros.Main;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
@@ -18,7 +17,6 @@ import java.util.function.Consumer;
 import static com.ntros.AppConstants.WORLD_SIZES_ALLOWLIST;
 import static com.ntros.graphics.ScreenType.MAIN_MENU;
 import static com.ntros.graphics.rendering.data.WorldSize.MEDIUM;
-import static com.ntros.graphics.rendering.data.WorldSize.SMALL;
 
 public class WorldSetupPanel extends AbstractScreenPanel {
 
@@ -52,9 +50,9 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     title.setFont(title.getFont().deriveFont(Font.BOLD, 32f));
     title.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-    seedField.setText(String.valueOf(Main.SEED));
+    seedField.setText(String.valueOf(Main.SYSTEM_SEED));
     seedField.setMaximumSize(new Dimension(300, 32));
-    Random rng = new Random(Main.SEED);
+    Random rng = new Random(Main.SYSTEM_SEED);
     JButton randomSeedButton = new JButton("Random Seed");
     randomSeedButton.setAlignmentX(Component.CENTER_ALIGNMENT);
     randomSeedButton.addActionListener(event -> seedField.setText(Long.toString(rng.nextLong())));
