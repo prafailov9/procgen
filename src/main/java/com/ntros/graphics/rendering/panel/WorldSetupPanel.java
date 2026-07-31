@@ -3,6 +3,8 @@ package com.ntros.graphics.rendering.panel;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.generator.fastnoiselite.NoiseSettings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,6 +14,8 @@ import java.util.function.Consumer;
 import static com.ntros.graphics.ScreenType.MAIN_MENU;
 
 public class WorldSetupPanel extends AbstractScreenPanel {
+
+  private static final Logger log = LoggerFactory.getLogger(WorldSetupPanel.class);
 
   // world dimensions in tiles, independent of the window size
   private static final int WORLD_WIDTH = 1920;
@@ -77,13 +81,14 @@ public class WorldSetupPanel extends AbstractScreenPanel {
   private void requestGeneration() {
     final long seed;
 
+    // TODO: generate seed outside.
     try {
       seed = Long.parseLong(seedField.getText().trim());
     } catch (NumberFormatException exception) {
       statusLabel.setText("Seed must be a whole number.");
       return;
     }
-
+    log.info("Starting Generation...");
     // TODO: let the player tune the Noise settings
     TerrainGenerationSettings settings =
         new TerrainGenerationSettings(

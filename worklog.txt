@@ -1,11 +1,17 @@
 I. Current issues:
 1. [FIXED] Swing window is tiny and not responding to different values for width and height. WorldScreen dimensions getter was returning hardcoded 800x800 values. Swapped them with world dimensions.
-
+2. Zooming in/out is not working. Zooming in is needed to select a starting territory and further generation of resources on top of the terrain.
 II. Current Goals:
-- Implement Command classes. have a MVP SpeedChange command.
-- Implement the State Loop. have a minimum viable loop that spins and responds to speed value changes.
+1. Done:
+- [DONE] have a MVP SpeedChange command.
+- [DONE] Implement the State Loop. have a minimum viable loop that spins and responds to speed value changes.
     Verify with logs.
-- Implement Publication Algorithm.
-- Figure out how Commands can be generated from player actions(keyboard, mouse).
-- Implement multiple generation strategies
-    for objects on top of the world and make world+objects generation customizable based on player preference.
+- [DONE] Implement Publication Algorithm.
+- [DONE] Figure out how Commands can be generated from player actions(keyboard, mouse).
+2. Future:
+- Implement Command classes.
+- Implement multiple generation strategies for objects on top of the world
+    and make world+objects generation customizable based on player preference.
+- Scaffold the ECS design.
+- Implement an MVP ECS for one unit. Verify it responds to state commands/changes.
+- Implement an animal entity with age. Verify aging is relative to the Simulation Speed.

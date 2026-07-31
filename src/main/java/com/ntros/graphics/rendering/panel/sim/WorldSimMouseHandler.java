@@ -9,6 +9,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import javax.swing.*;
 
+// TODO: zooming not working
 public class WorldSimMouseHandler {
 
   private int tileSize;

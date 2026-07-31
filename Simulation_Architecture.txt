@@ -1,0 +1,83 @@
+I. UI Bootstrapping.
+The UI is created with a single main window(JFrame)and a set of panels, attached to it.
+Those panels are the actual views, displayed on screen. Each panel has its own
+ScreenId(MAIN_MENU, WORLD_SETUP, etc.) and relationships between other panels. For example, MAIN_MENU
+can lead to WORLD_SETUP if "New Game" button is pressed. WORLD_SETUP can lead back to MAIN_MENU if the "Back" button is pressed.
+These buttons are isolated in their own panels and control what is displayed on screen using the ScreenController.
+Every Panel shares the same ScreenController, telling the controller what panel to display, based on what button was
+pressed or what action was taken.
+
+Up to this point, no heavy backend work has been done, only UI wiring.
+All the aforementioned wiring is done on the EDT: the main thread only schedules bootstrapping via
+invokeLater, and AppGuiRunner builds the frame, panels and controller inside that task (its
+constructor throws if called off the EDT, so the rule cannot silently regress). The main thread then
+exits entirely, after bootstrapApplication is done. The program stays alive on the EDT as it is a non-daemon thread.
+
+II. Initial Player Interaction with the UI.
+Once UI bootstrapping is done, it is up to the player to decide what to do.
+When the user decides to start a new game, the MAIN_MENU panel will delegate to the WORLD_SETUP
+panel, displaying generation settings the player can tweak. Once done tweaking and
+pressing the "Generate World" button, generation gets handed to a GenerationWorker Thread, separating heavy compute from UI rendering.
+On a failed generation (any Throwable), the gen-thread will submit to the EDT, the UI handler thread, the error.
+The player stays on WORLD_SETUP with the form re-enabled and can retry. Recovery is by disposal:
+the failed worker, its thread and its future all become garbage; nothing needs resetting.
+On a successful gen, the gen-thread will submit to the EDT the internal simulation wiring for this current run. Once wired, the SimulationController
+will spin the stateProcessor in its own thread, and stateRenderer on the EDT at a minimum rendering interval(currently 16ms)
+and display the SIMULATION panel.
+
+III.Running Simulation.
+At this point, there are two active workers in the app: state-proc-1(the world updater) and AWT-EventQueue-0(the EDT).
+Both run independently of each other for the most part, but meet at two bridges.
+The sim is autonomous: commands are a steering wheel, not fuel. With no command ever sent, the
+updater still ticks the clock at default speed(1x, 60 ticks/sec) and still publishes ~10 snapshots/sec,
+because publishing is driven by tick advance, not by commands. (Right now the snapshots look identical
+because terrain never changes; once world.step() exists, an untouched world keeps living on its own.)
+
+Bridge 1, commands down: the UI gives the player the ability to send intents to the updater through the IntentTranslator which
+abstracts away player intents from the way they are transported to the updater.
+Intents come in the form of Commands, enqueued on a thread-safe channel, bridging the gap between both threads.
+Translator enqueues on the EDT -> StateProcessor dequeues on the state-proc-1.
+
+Bridge 2, snapshots up: once the world is updated, the UI needs to display it. That state is handed over to the UI by an
+AtomicReference holding an immutable WorldSnapshot - a copy made on the sim thread. It does NOT wrap
+the mutable world; the World itself always has exactly one owner and is never shared. The safety is a
+two-part contract: the AtomicReference provides visibility (the reader sees a fully-written object),
+and the snapshot's immutability removes any race on the contents.
+Both the Processor and the Renderer have that holder. The Renderer checks periodically if a
+new snapshot object has been published and if so, rebuilds the image and updates the UI.
+
+So the data flow is two one-directional pipes - commands down, snapshots up - which together form a loop.
+Never a shared mutable object in either direction. Every cross-thread transfer in the app rides one of
+three happens-before bridges, which is why no synchronized/volatile is needed on World or WorldSnapshot:
+  1. CompletableFuture.complete() -> continuation  (world handoff, gen -> EDT)
+  2. AtomicReference.set() -> get()                (snapshot handoff, sim -> EDT)
+  3. Thread.start()                                (world handoff, EDT -> state-proc)
+
+IV. Sim mechanics.
+Loop rate and tick rate are independent knobs:
+  - The processor LOOP spins ~180-200 cycles/sec (it sleeps FRAME_SLEEP_MS = 5ms between cycles).
+  - The TICK rate at 1x is 60 ticks/sec (one tick costs BASE_TICK_SECONDS = 1/60s of banked time).
+    The bucket spreads those ticks across the cycles: most cycles run 0 ticks, roughly every third runs 1.
+World Publishing is capped at 10 snapshots/sec, and only when the tick count actually advanced.
+Total allowed updates per loop are currently at 8 ticks/loop cycle to prevent spiraling; past the cap
+the remaining debt is forgiven (bucket reset to 0).
+Simulation speed can be modified, updating the world faster/slower, with a speed modifier(SimulationSpeed.java).
+The State simulation itself is managed by an accumulator value called timeBucket.
+The bucket decides how many whole updates(ticks) can be made in a given loop cycle.
+At each loop cycle, the bucket gets filled with the elapsed time from
+the previous spin till now, multiplied by the current sim speed modifier.
+The bigger the modifier, the bigger the bucket, which means the world will be
+updated more frequently per cycle, which means the
+sim will advance visibly faster in the UI.
+
+Two separate ceilings sit on top of the modifier:
+  1. Tick throughput: 8 ticks/cycle x ~190 cycles/sec = ~1,500 ticks/sec max in throttled mode.
+     X25 needs exactly 1,500 ticks/sec - it sits at the ceiling. X250 needs 15,000 ticks/sec and
+     CANNOT get it: the cap flattens it to ~1,500, so X250 currently runs at ~25x, not 250x.
+     (Fixes when it matters: raise MAX_TICKS_PER_FRAME, shrink the sleep, or scale the cap with
+     the speed setting. Only MAX bypasses the accumulator entirely.)
+  2. Frame rate: whatever the tick rate, the UI shows at most 10 snapshots/sec - high speeds are
+     a time-lapse, not a smooth fast-forward.
+
+V. Future Plans.
+This game will eventually turn into an ecosystem sim, and from that a settlement/economy sim.

@@ -12,9 +12,12 @@ import com.ntros.core.control.SwappableIntentTranslator;
 import com.ntros.core.world.World;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.WorldSnapshot;
+import com.ntros.generator.GenerationWorker;
 import com.ntros.generator.NoiseTerrainGenerator;
 import com.ntros.graphics.rendering.AppGuiRunner;
 import com.ntros.graphics.rendering.StateUIRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.SwingUtilities;
 import java.util.concurrent.atomic.AtomicReference;
@@ -29,6 +32,8 @@ public final class AppGuiBootstrapper {
   private static final int RENDERER_DELAY_MS = 16;
   private static final int COMMAND_QUEUE_CAPACITY = 1024;
 
+  private static final Logger log = LoggerFactory.getLogger(AppGuiBootstrapper.class);
+
   // stable handle the GUI holds forever; retargeted at each run's channel
   private final SwappableIntentTranslator intentTranslator = new SwappableIntentTranslator();
 
@@ -36,10 +41,17 @@ public final class AppGuiBootstrapper {
   private SimulationController simulationController;
 
   public void bootstrapApplication() {
-    appGuiRunner =
-        new AppGuiRunner(
-            AppConstants.WIDTH, AppConstants.HEIGHT, this::onGenerationRequested, intentTranslator);
-    appGuiRunner.startGuiApp();
+    // build AND show on the EDT: Swing components must be created there, not just displayed
+    SwingUtilities.invokeLater(
+        () -> {
+          appGuiRunner =
+              new AppGuiRunner(
+                  AppConstants.WIDTH,
+                  AppConstants.HEIGHT,
+                  this::onGenerationRequested,
+                  intentTranslator);
+          appGuiRunner.showMainWindow();
+        });
   }
 
   /** Stops the running simulation, if any. Safe to call from a shutdown hook. */
@@ -51,31 +63,29 @@ public final class AppGuiBootstrapper {
 
   // This is a callback that gets passed down multiple steps. Can get messy when multiple different
   // generations are needed.
-  // Generation might need to be a StateProcessor concern or a different abstraction.
   // TODO: explore different generation triggering options
   private void onGenerationRequested(TerrainGenerationSettings settings) {
-    // TODO: figure out if you need a generation thread
-    Thread generationThread =
-        new Thread(
-            () -> {
-              try {
-                // TODO: create multiple generations for different objects in the world
-                NoiseTerrainGenerator generator = new NoiseTerrainGenerator(settings);
-                byte[] terrain = generator.generateTerrain();
-                World world = World.of(settings.worldTerrainSettings(), terrain);
-                // submit start on the EDT
-                SwingUtilities.invokeLater(() -> startSimulation(world));
-              } catch (Exception e) {
-                SwingUtilities.invokeLater(
-                    () -> appGuiRunner.getWorldSetupPanel().showGenerationError(e));
-              }
+    // run heavy tasks in independent threads, off the EDT
+    // TODO: create multiple generations for different objects in the world
+    GenerationWorker generationWorker = new GenerationWorker(settings);
+    generationWorker.start();
+    // on success: submit startSim to the EDT
+    generationWorker
+        .deliver()
+        .thenAcceptAsync(this::startSimulation, SwingUtilities::invokeLater)
+        .exceptionallyAsync( // on failure: unfold exception and supply to EDT
+            ex -> {
+              Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+              log.error("World generation failed", cause);
+              appGuiRunner.getWorldSetupPanel().showGenerationError(cause);
+              return null;
             },
-            "world-gen");
-    generationThread.start();
+            SwingUtilities::invokeLater);
   }
 
   // start spinning once a world is generated
   private void startSimulation(World world) {
+    log.info("Sim start requested. Initializing state components..");
     stopCurrentSimulation();
     // fresh token per run, cannot reuse cancelled tokens
     CancellationToken token = new CancellationToken();
@@ -86,18 +96,24 @@ public final class AppGuiBootstrapper {
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
     // The State Updater
+    log.info("Initialising State Processor...");
     WorldStateProcessor worldStateProcessor =
         new WorldStateProcessor(world, clock, channel, latestSnapshot, token);
+    log.info("State Processor initialized.");
     // The UI Updater
     StateUIRenderer renderer = new StateUIRenderer(appGuiRunner.getWorldSimPanel(), latestSnapshot);
     // Handles the Simulation lifecycle
     simulationController =
         new SimulationController(worldStateProcessor, renderer, RENDERER_DELAY_MS, token);
+
+    // non-blocking: spawns the state-proc thread and starts the render timer
     simulationController.start();
+    log.info("Sim started");
 
     intentTranslator.setDelegate(new ChannelIntentTranslator(channel));
     appGuiRunner.getWorldSetupPanel().setGenerating(false);
     appGuiRunner.getScreenController().show(SIMULATION);
+    log.info("Displaying world...");
   }
 
   private void stopCurrentSimulation() {

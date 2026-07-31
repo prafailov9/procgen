@@ -184,7 +184,7 @@ public class WorldStateProcessor implements Runnable {
     }
   }
 
-  // TODO: create CommandTranslator
+  // TODO: route through a CommandExecutor
   private void apply(Command command) {
     if (command instanceof ChangeSpeedCommand changeSpeed) {
       SimulationSpeed target = changeSpeed.getSpeed();

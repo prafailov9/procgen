@@ -5,6 +5,8 @@ import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.graphics.rendering.panel.*;
 import com.ntros.graphics.rendering.panel.sim.WorldSimPanel;
 import com.ntros.keyboard.WorldSimKeyListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,32 +14,38 @@ import java.util.function.Consumer;
 
 import static com.ntros.graphics.ScreenType.*;
 
-/** Handles the Main App window. */
+/**
+ * Handles the Main App window: builds the frame, the screens and their controller. All Swing
+ * components live here, so construction must happen on the EDT — the constructor enforces it.
+ */
 public final class AppGuiRunner {
-  private final int windowWidth;
-  private final int windowHeight;
-  private final JPanel screens;
+  private static final Logger log = LoggerFactory.getLogger(AppGuiRunner.class);
+
+  private final JFrame frame;
   private final ScreenController screenController;
   private final WorldSetupPanel worldSetupPanel;
   private final WorldSimPanel worldSimPanel;
   private final PauseMenuPanel pauseMenuPanel;
 
-  /** Setup of the Main Window's screens and controller */
+  /** Setup of the Main Window, its screens and controller. Must be called on the EDT. */
   public AppGuiRunner(
       int windowWidth,
       int windowHeight,
       Consumer<TerrainGenerationSettings>
           genCallback, // callback function to trigger world generation
-      IntentTranslator IntentTranslator) {
-    this.windowWidth = windowWidth;
-    this.windowHeight = windowHeight;
+      IntentTranslator intentTranslator) {
+    if (!SwingUtilities.isEventDispatchThread()) {
+      throw new IllegalStateException("AppGuiRunner must be created on the EDT");
+    }
+
+    log.info("Setting up screens...");
 
     // TODO: add own assets
 
     // create a card layout for switching between screens
     CardLayout cardLayout = new CardLayout();
     // screens panel to maintain all the screens
-    screens = new JPanel(cardLayout);
+    JPanel screens = new JPanel(cardLayout);
 
     // screen controller holds the panel and displays based on screen id
     screenController = new ScreenController(screens, cardLayout);
@@ -46,13 +54,21 @@ public final class AppGuiRunner {
     worldSimPanel = new WorldSimPanel(screenController);
     pauseMenuPanel = new PauseMenuPanel(screenController);
 
-    worldSimPanel.addKeyListener(new WorldSimKeyListener(IntentTranslator));
+    worldSimPanel.addKeyListener(new WorldSimKeyListener(intentTranslator));
 
     // add panels to the screen controller panel
     screens.add(mainMenuPanel, MAIN_MENU.name());
     screens.add(worldSetupPanel, WORLD_SETUP.name());
     screens.add(worldSimPanel, SIMULATION.name());
     screens.add(pauseMenuPanel, PAUSE_MENU.name());
+
+    // the main window
+    frame = new JFrame("ProcGen");
+    frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+    frame.setContentPane(screens);
+    frame.setSize(windowWidth, windowHeight);
+    // center
+    frame.setLocationRelativeTo(null);
   }
 
   public ScreenController getScreenController() {
@@ -71,19 +87,8 @@ public final class AppGuiRunner {
     return pauseMenuPanel;
   }
 
-  // submits Main Window creation on the EDT
-  public void startGuiApp() {
-    SwingUtilities.invokeLater(
-        () -> {
-          // create the main window
-          JFrame frame = new JFrame("ProcGen");
-          frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-
-          frame.setContentPane(screens);
-          frame.setSize(windowWidth, windowHeight);
-          // center
-          frame.setLocationRelativeTo(null);
-          frame.setVisible(true);
-        });
+  /** Makes the already-built main window visible. Must be called on the EDT. */
+  public void showMainWindow() {
+    frame.setVisible(true);
   }
 }

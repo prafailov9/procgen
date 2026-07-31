@@ -33,7 +33,6 @@ public class WorldColorsUtils {
   }
 
   public static Color getTileColor(Tile tile) {
-    log.info("finding color for tile {}", tile.name());
     return switch (tile) {
       case DEEP_WATER -> DEEP_WATER_COLOR;
       case SHALLOW_WATER -> SHALLOW_WATER_COLOR;
