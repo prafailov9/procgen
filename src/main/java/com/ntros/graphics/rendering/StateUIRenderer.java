@@ -1,6 +1,6 @@
 package com.ntros.graphics.rendering;
 
-import com.ntros.core.world.WorldSnapshot;
+import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.graphics.rendering.panel.sim.WorldSimPanel;
 import java.util.concurrent.atomic.AtomicReference;
 

@@ -3,6 +3,7 @@ package com.ntros.bootstrap;
 import com.ntros.AppConstants;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationController;
+import com.ntros.core.ecs.system.*;
 import com.ntros.core.processor.WorldStateProcessor;
 import com.ntros.core.channel.CommandChannel;
 import com.ntros.core.clock.SimClock;
@@ -13,8 +14,7 @@ import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
 import com.ntros.core.world.World;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
-import com.ntros.core.world.WorldSnapshot;
-import com.ntros.ecs.system.BiomassGrowthSystem;
+import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.generator.GenerationWorker;
 import com.ntros.graphics.rendering.AppGuiRunner;
 import com.ntros.graphics.rendering.StateUIRenderer;
@@ -100,8 +100,17 @@ public final class AppGuiBootstrapper {
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
 
-    // Create actor
-    Actor actor = new StateActor(List.of(new BiomassGrowthSystem(world.getSeed())));
+    // Create actor. Each system derives a distinct RNG stream from the world seed so no two
+    // systems make correlated random choices.
+    Actor actor =
+        new StateActor(
+            List.of(
+                new BiomassGrowthSystem(world.getSeed()),
+                new MovementSystem(world.getSeed() ^ 0x4D4F5645L),
+                new FeedingSystem(world.getSeed() ^ 0x6D4F5645L),
+                new MetabolismSystem(world.getSeed() ^ 0x5D4F5645L),
+                new ReproductionSystem(world.getSeed() ^ 0x9D4F5645L),
+                new LifecycleSystem(world.getSeed() ^ 0x7D4F5645L)));
 
     // The State Updater
     log.info("Initialising State Processor...");

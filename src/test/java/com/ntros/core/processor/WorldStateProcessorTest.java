@@ -2,7 +2,8 @@ package com.ntros.core.processor;
 
 import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
-import com.ntros.ecs.system.BiomassGrowthSystem;
+import com.ntros.core.ecs.store.CreatureStore;
+import com.ntros.core.ecs.system.BiomassGrowthSystem;
 import com.ntros.generator.BiomassGenerator;
 import com.ntros.graphics.rendering.data.Dimensions2d;
 import com.ntros.core.CancellationToken;
@@ -13,7 +14,7 @@ import com.ntros.core.clock.SimClock;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.command.ChangeSpeedCommand;
 import com.ntros.core.world.World;
-import com.ntros.core.world.WorldSnapshot;
+import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.generator.NoiseTerrainGenerator;
@@ -80,6 +81,6 @@ class WorldStateProcessorTest {
 
     var terrain = noiseTerrainGenerator.generateTerrain();
     var biomass = new BiomassGenerator(terrain, seed + 1).generateBiomass();
-    return World.of(worldTerrainSettings, terrain, biomass);
+    return World.of(worldTerrainSettings, terrain, biomass, new CreatureStore());
   }
 }

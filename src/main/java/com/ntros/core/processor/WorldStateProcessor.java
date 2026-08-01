@@ -8,7 +8,7 @@ import com.ntros.core.command.Command;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.world.World;
-import com.ntros.core.world.WorldSnapshot;
+import com.ntros.core.world.snapshot.WorldSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +34,7 @@ public class WorldStateProcessor implements Runnable {
   private static final long FRAME_SLEEP_MS = 5;
 
   // ticks per cancel-check at max speed
-  private static final int MAX_UPDATES_COUNT = 1000;
+  private static final int MAX_UPDATES_COUNT = 18;
 
   private final World world;
   private final TickingClock clock;
@@ -90,13 +90,10 @@ public class WorldStateProcessor implements Runnable {
       stats.setElapsedRealTime((now - last) / 1_000_000_000.0);
       last = now;
 
-      // when MaxSpeed is enabled, we bypass the accumulator
-      // and spin as much as the CPU allows, updating the world and
-      // clock MAX_UPDATES_COUNT times.
       if (maxSpeed) {
         updateAtMax();
       } else {
-        // update at current speed modifier. speed=0 gets ignored naturally.
+        // update at current speed modifier. speed = 0 gets ignored naturally.
         updateAtRate();
       }
 
@@ -126,6 +123,11 @@ public class WorldStateProcessor implements Runnable {
     }
   }
 
+  // when MaxSpeed is enabled, we bypass the accumulator
+  // and spin as much as the CPU allows, updating the world and
+  // clock MAX_UPDATES_COUNT times.
+  // TODO: this shi is fucking crazy, it just paints the whole
+  //  map yellow instantly no matter the cap. Should probably default maxSpeed to x250
   private void updateAtMax() {
     for (int i = 0; i < MAX_UPDATES_COUNT && !token.isCancelRequested(); i++) {
       update();
@@ -141,6 +143,7 @@ public class WorldStateProcessor implements Runnable {
    */
   private void updateAtRate() {
     // calculate the total amount of updates in time for this spin
+    // speed multiplier allocates more updates
     stats.fillTimeBucket(speed * stats.getElapsedRealTime());
     int ticks = 0;
     while (canDrainBucket(ticks)) {
@@ -183,7 +186,6 @@ public class WorldStateProcessor implements Runnable {
   private void drainCommands() {
     Command command;
     while ((command = channel.poll()) != null) {
-      log.info("Processing: {}", command.getCommandName());
       apply(command);
     }
   }
@@ -193,9 +195,7 @@ public class WorldStateProcessor implements Runnable {
     if (command instanceof ChangeSpeedCommand changeSpeed) {
       SimulationSpeed target = changeSpeed.getSpeed();
       maxSpeed = target == SimulationSpeed.MAX;
-      if (target == SimulationSpeed.PAUSED) {
-        speed = 0;
-      } else if (!maxSpeed) {
+      if (!maxSpeed) {
         speed = target.getSpeedValue();
       }
     }

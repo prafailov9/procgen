@@ -11,7 +11,10 @@ public record Dimensions2d(int width, int height) {
   private static final int MAX_ALLOWED_WINDOW_WIDTH = 3840;
   private static final int MAX_ALLOWED_WINDOW_HEIGHT = 2160;
 
-  // TODO: fix. screen is only displaying smaller worlds in the top-left corner, rest is black.
+  public static Dimensions2d ofTinyWorld() {
+    return ofRenderable(WORLD_OBJECT, 32, 32);
+  }
+
   public static Dimensions2d ofSmallWorld() {
     return ofRenderable(WORLD_OBJECT, 490, 270);
   }

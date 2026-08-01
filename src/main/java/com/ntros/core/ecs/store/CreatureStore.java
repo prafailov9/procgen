@@ -1,9 +1,13 @@
-package com.ntros.ecs.store;
+package com.ntros.core.ecs.store;
 
 import java.util.BitSet;
 
 import static com.ntros.AppConstants.CREATURES_CAPACITY;
 
+/**
+ * SoA storage for creatures: component arrays plus slot allocation (freelist + alive bitset).
+ * Deferred birth/death queues live in {@link LifecycleRequests}.
+ */
 public class CreatureStore {
 
   // on spawn: set bits and fields, allocate on the freelist
@@ -11,13 +15,9 @@ public class CreatureStore {
   private final BitSet alive = new BitSet(CREATURES_CAPACITY);
   private int freeCount;
 
-  /**
-   * Spawning: int index = freeList[--freeCount]; alive.set(index);
-   *
-   * <p>Killing: alive.clear(index); freeList[freeCount++] = index;
-   */
   private final int[] freeList = new int[CREATURES_CAPACITY];
 
+  // all indexed by creatureId
   final float[] x = new float[CREATURES_CAPACITY];
   final float[] y =
       new float[CREATURES_CAPACITY]; // position (float: smooth movement, casts to tile via (int))
@@ -44,9 +44,30 @@ public class CreatureStore {
     return creatureId;
   }
 
+  /**
+   * @return id of a living creature standing on tile (cx, cy), or -1. Linear scan over alive ids —
+   *     replace with a per-tile occupancy grid when populations grow.
+   */
+  public int creatureAt(int cx, int cy) {
+    for (int id = alive.nextSetBit(0); id >= 0; id = alive.nextSetBit(id + 1)) {
+      if ((int) x[id] == cx && (int) y[id] == cy) {
+        return id;
+      }
+    }
+    return -1;
+  }
+
   public void kill(int creatureId) {
     alive.clear(creatureId);
     freeList[freeCount++] = creatureId;
+  }
+
+  public BitSet getAlive() {
+    return alive;
+  }
+
+  public int[] getPrimitiveAlive() {
+    return alive.stream().toArray();
   }
 
   public float[] energy() {

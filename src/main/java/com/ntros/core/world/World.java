@@ -3,6 +3,8 @@ package com.ntros.core.world;
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
+import com.ntros.core.ecs.store.CreatureStore;
+import com.ntros.core.ecs.store.LifecycleRequests;
 import com.ntros.generator.Terrain;
 
 /**
@@ -23,10 +25,19 @@ public final class World {
 
   private final float[] biomass;
   private final byte[] lightLevel;
-  // TODO: add other game objects Struct-of-Arrays style.
+  private final CreatureStore creatureStore;
+  // deferred birth/death queues, drained by LifecycleSystem each tick
+  private final LifecycleRequests lifecycleRequests = new LifecycleRequests();
+
   private final TerrainCodec terrainCodec;
 
-  private World(int width, int height, long seed, byte[] terrain, float[] biomass) {
+  private World(
+      int width,
+      int height,
+      long seed,
+      byte[] terrain,
+      float[] biomass,
+      CreatureStore creatureStore) {
     this.width = width;
     this.height = height;
     this.seed = seed;
@@ -36,11 +47,16 @@ public final class World {
     elevation = new float[size];
     moisture = new float[size];
     lightLevel = new byte[size];
+    this.creatureStore = creatureStore;
+
     terrainCodec = new TerrainCodec();
   }
 
   public static World of(
-      WorldTerrainSettings worldTerrainSettings, Terrain terrain, float[] biomass) {
+      WorldTerrainSettings worldTerrainSettings,
+      Terrain terrain,
+      float[] biomass,
+      CreatureStore creatureStore) {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
@@ -48,6 +64,10 @@ public final class World {
     if (dimensions == null) {
       throw new IllegalArgumentException("Empty dimensions");
     }
+    if (creatureStore == null) {
+      throw new IllegalArgumentException("Empty creature store");
+    }
+
     validateDimensions(dimensions.width(), dimensions.height());
     validateTerrain(dimensions.width(), dimensions.height(), terrain.tiles());
     return new World(
@@ -55,7 +75,8 @@ public final class World {
         dimensions.height(),
         worldTerrainSettings.seed(),
         terrain.tiles(),
-        biomass);
+        biomass,
+        creatureStore);
   }
 
   public int getWidth() {
@@ -96,6 +117,14 @@ public final class World {
 
   public float[] getBiomass() {
     return biomass;
+  }
+
+  public CreatureStore getCreatureStore() {
+    return creatureStore;
+  }
+
+  public LifecycleRequests getLifecycleRequests() {
+    return lifecycleRequests;
   }
 
   public byte getEncodedTile(int x, int y) {

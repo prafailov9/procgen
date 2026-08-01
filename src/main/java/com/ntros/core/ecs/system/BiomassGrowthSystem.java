@@ -1,5 +1,7 @@
-package com.ntros.ecs.system;
+package com.ntros.core.ecs.system;
 
+import static com.ntros.core.ecs.system.TickSystemHelper.cannotGrowHere;
+import static com.ntros.core.ecs.system.TickSystemHelper.inBounds;
 import static com.ntros.core.world.terrain.Tile.FOREST;
 import static com.ntros.core.world.terrain.Tile.GRASS;
 
@@ -10,28 +12,27 @@ import java.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BiomassGrowthSystem implements TickSystem {
+public class BiomassGrowthSystem extends AbstractTickSystem {
 
   private static final Logger log = LoggerFactory.getLogger(BiomassGrowthSystem.class);
 
-  private final Random rng;
   private final TerrainCodec terrainCodec = new TerrainCodec();
   private static final float BASE_GROWTH = 0.05f;
   private static final int UPDATE_TOTAL = 7;
-  private static final float MAX_GROWTH_THRESHOLD = 1000.0f;
+  private static final float MAX_GROWTH_THRESHOLD = 5.0f;
   private static final float NIL = 0.000000000000000f;
 
   /**
-   * Seeded once here, never re-seeded: calling setSeed per tick resets the sequence and makes
-   * every tick select the same tiles forever.
+   * Seeded once here, never re-seeded: calling setSeed per tick resets the sequence and makes every
+   * tick select the same tiles forever.
    */
   public BiomassGrowthSystem(long seed) {
-    rng = new Random(seed);
+    super(seed);
   }
 
   // select N random tiles to grow instead of a sweeping update
   // Don't know wtf to do with the tick. Maybe for observability
-  // index selection is random, the same index can be selected more than once per tick which
+  // index selection is random, the same index can be selected more than once in a tick which
   // produces naturally different growth rates for each biomass
   @Override
   public void update(World world, long tick) {
@@ -71,7 +72,7 @@ public class BiomassGrowthSystem implements TickSystem {
       if (cannotGrowHere(neighTile)) {
         return;
       }
-      // set if empty, else increment if less than max
+      // grow if empty, else increment if less than max
       if (biomass[neighIdx] == NIL) {
         biomass[neighIdx] = BASE_GROWTH;
       } else if (biomass[neighIdx] < MAX_GROWTH_THRESHOLD) {
@@ -82,11 +83,5 @@ public class BiomassGrowthSystem implements TickSystem {
     }
   }
 
-  private boolean inBounds(int x, int y, int w, int h) {
-    return x >= 0 && x < w && y >= 0 && y < h;
-  }
 
-  private boolean cannotGrowHere(Tile tile) {
-    return (tile != GRASS && tile != FOREST);
-  }
 }

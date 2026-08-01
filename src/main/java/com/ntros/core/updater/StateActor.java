@@ -1,7 +1,7 @@
 package com.ntros.core.updater;
 
 import com.ntros.core.world.World;
-import com.ntros.ecs.system.TickSystem;
+import com.ntros.core.ecs.system.TickSystem;
 import java.util.List;
 
 public class StateActor implements Actor {

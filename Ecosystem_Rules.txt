@@ -1,0 +1,66 @@
+ECOSYSTEM RULES
+General rules for the simulation. Short on purpose - these get shaped as the game grows.
+
+THE BIG PICTURE
+Energy is the only currency. Sunlight becomes plant biomass, biomass becomes herbivore energy,
+herbivores become predator energy, and death removes energy from the world. No system may create
+energy for a creature except by taking it from somewhere else. Growth is the only faucet;
+death and living costs are the only drains. If populations explode or collapse, the first
+question is always: where is energy leaking in or out?
+
+Every creature follows small local rules: look around, move, eat, pay upkeep, reproduce, die.
+Nobody scripts population cycles - they must emerge from these rules or not at all.
+
+TICK ORDER
+Systems run in this fixed order every tick. The order tells a tiny story:
+perceive, act, eat, pay rent, breed, bury the dead.
+
+  1. Growth        - the world regrows
+  2. Behavior      - creatures decide (eyes and brain)
+  3. Movement      - creatures act on decisions (legs)
+  4. Feeding       - creatures eat what is where they stand (mouth)
+  5. Metabolism    - everyone pays the cost of being alive
+  6. Reproduction  - surplus energy becomes offspring
+  7. Cleanup       - deaths and births actually happen
+
+WHAT EACH SYSTEM IS
+Growth: biomass slowly regrows on grass and forest, a few random tiles per tick.
+  It never grows on water, sand, hills or mountains, and never past the cap.
+
+Behavior (later): the only system with perception. It scans nearby tiles and writes an
+  INTENTION (a chosen direction or target) for other systems to act on. It never moves anyone
+  and never changes energy. Until it exists, Movement uses random directions.
+
+Movement: executes steps. Checks the target tile is inside the world and walkable,
+  then moves the creature and charges a step cost. It never decides WHY to move.
+
+Feeding: converts one store of energy into another, on the spot.
+  Rabbits eat the biomass on their own tile; foxes eat rabbits they stand next to.
+  A feeder never gains more energy than the source loses, and never eats past its own maximum.
+
+Metabolism: charges every living creature a small upkeep cost every tick, and advances age
+  (age counts DAYS, not ticks). A creature at zero energy or past its lifespan is marked dead.
+
+Reproduction: a creature with a large energy surplus may produce offspring, paying a big
+  chunk of its own energy for it. The child spawns nearby, small and hungry. If the store is
+  full, no birth happens.
+
+Cleanup: the undertaker. The ONLY system that actually kills or spawns. Everyone else only
+  marks. This runs last so no system ever sees a half-dead creature mid-tick.
+
+GENERAL LAWS
+1. One owner. Only the sim thread ever touches the world. The UI sees copies.
+2. Systems are stateless. All game state lives in the world's stores and layers.
+   A system owns nothing but its random generator.
+3. Data and logic never mix. Stores hold numbers; systems hold rules.
+4. Mark, don't kill. Death and birth during a tick are requests; Cleanup applies them at
+   the end. No creature list changes while someone is walking it.
+5. Same seed, same history. Every random generator derives from the world seed, each with
+   its own twist so no two systems share a stream. A run must be reproducible forever.
+6. Tune in sim time, not raw numbers. Constants are chosen from anchors like
+   "a rabbit starves in about two days" or "grass regrows in a season" - then converted
+   to per-tick values. One tick is one sim minute; one day is 1440 ticks.
+7. Everything visible. A system that changes nothing on screen or in the stats does not
+   exist. If you cannot see it, you cannot debug it.
+8. Predators are rare. Roughly one fox per ten rabbits at spawn, or the food chain
+   collapses before it starts.

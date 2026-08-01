@@ -1,4 +1,4 @@
-package com.ntros.ecs.system;
+package com.ntros.core.ecs.system;
 
 import com.ntros.core.world.World;
 

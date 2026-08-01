@@ -42,6 +42,8 @@ public class BiomassGenerator {
     int width = dimensions.width();
     int height = dimensions.height();
     float[] biomass = new float[width * height];
+    // TODO: add freshwater energy type. Roll the type dice before the cluster one
+    byte[] biotype = new byte[width * height];
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         int idx = y * width + x;
@@ -53,16 +55,16 @@ public class BiomassGenerator {
         // roll dice to decide if cluster or single tile
         // small chance for clusters
         if (CLUSTER_BIOMASS_CHANCE >= rng.nextFloat()) {
-          generateFoodCluster(x, y, biomass);
+          generateBioCluster(x, y, biomass);
         } else {
-          tryGrowFood(idx, biomass);
+          tryGrowBio(idx, biomass);
         }
       }
     }
     return biomass;
   }
 
-  private void generateFoodCluster(int x, int y, float[] biomass) {
+  private void generateBioCluster(int x, int y, float[] biomass) {
     // select random cluster length
     int width = terrain.dimensions2d().width();
     int radius = rng.nextInt(2, 7);
@@ -81,13 +83,13 @@ public class BiomassGenerator {
           continue;
         }
 
-        tryGrowFood(idx, biomass);
+        tryGrowBio(idx, biomass);
       }
     }
   }
 
-  private void tryGrowFood(int idx, float[] biomass) {
-    if (canGrowFood(idx, biomass)) {
+  private void tryGrowBio(int idx, float[] biomass) {
+    if (canGrow(idx, biomass)) {
       float qty = rng.nextFloat(1.0f, 52.0f);
       biomass[idx] = qty;
     }
@@ -101,7 +103,7 @@ public class BiomassGenerator {
   }
 
   /** // skip if current already has a value // skip non-forest/grass */
-  private boolean canGrowFood(int idx, float[] biomass) {
+  private boolean canGrow(int idx, float[] biomass) {
     Tile tile = terrainCodec.decode(terrain.tiles()[idx]);
     return (tile == Tile.GRASS || tile == Tile.FOREST) && biomass[idx] == 0;
   }
