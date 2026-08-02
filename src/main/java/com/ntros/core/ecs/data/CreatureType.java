@@ -7,10 +7,10 @@ package com.ntros.core.ecs.data;
  * rabbit rates and exploding to 11K.
  */
 public enum CreatureType {
-  RABBIT(0.07f, 6, 0.010f, 70.0f, 25.0f, 0.70f),
+  RABBIT(0.07f, 5, 0.010f, 70.0f, 25.0f, 0.70f),
 
   // Predator stabilizers: foxes see farther (ambush advantage) but must breed far more rarely
-  // than prey — real predator energy conversion is ~10%. Same-rate breeding is what produced
+  // than prey — real predator energy conversion is around 10%. Same-rate breeding is what produced
   // the overshoot-collapse: fox boom, prey extinction, fox crash.
   FOX(0.12f, 10, 0.0015f, 85.0f, 35.0f, 0.70f);
 

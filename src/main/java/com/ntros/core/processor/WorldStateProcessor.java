@@ -3,16 +3,15 @@ package com.ntros.core.processor;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationSpeed;
 import com.ntros.core.channel.Channel;
+import com.ntros.core.clock.TickingClock;
 import com.ntros.core.command.ChangeSpeedCommand;
 import com.ntros.core.command.Command;
-import com.ntros.core.clock.TickingClock;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.world.World;
 import com.ntros.core.world.snapshot.WorldSnapshot;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Owns the world on its own thread: drains UI commands, advances the clock and world state, and

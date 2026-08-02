@@ -73,6 +73,17 @@ public class WorldSimPanel extends AbstractScreenPanel {
   // one counter per Motive ordinal, across all species — the full picture of what the
   // population is doing, not just flee/hunt
   private final int[] statMotiveCounts = new int[Motive.values().length];
+
+  /// Population history: a ring buffer sampled once per sim-hour. Predator-prey dynamics are
+  /// phase relationships (prey peak, predators peak later, prey crash) which a single-frame
+  /// readout cannot show — you have to see the curves side by side over time.
+  private static final int HISTORY_SAMPLES = 336; // 14 sim days at one sample per sim-hour
+  private static final int TICKS_PER_SAMPLE = 60; // one sim hour
+  private final int[] rabbitHistory = new int[HISTORY_SAMPLES];
+  private final int[] foxHistory = new int[HISTORY_SAMPLES];
+  private int historyCount;
+  private int historyWriteIndex;
+  private long lastSampledHour = Long.MIN_VALUE;
   // render health: paints per second and cost of the last paint
   private int fpsCounter;
   private int statFps;
@@ -164,6 +175,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
       lastTerrain = next.terrain();
     }
     computeStats(next);
+    samplePopulationHistory(next);
     rebuildOverlay(next);
     // Reset the view only when loading a differently-sized world, not every tick
     if (dimensionsChanged) {
@@ -171,6 +183,30 @@ public class WorldSimPanel extends AbstractScreenPanel {
       fillPanelWithWorld();
     }
     repaint();
+  }
+
+  /** Records one sample per sim-hour. Must run after computeStats. */
+  private void samplePopulationHistory(WorldSnapshot snapshot) {
+    long hour = snapshot.tick() / TICKS_PER_SAMPLE;
+    if (hour == lastSampledHour) {
+      return;
+    }
+    // a new run rewinds the clock: drop the previous world's history rather than splicing it.
+    // The arrays are zeroed too, since the autoscale maximum scans all slots.
+    if (hour < lastSampledHour) {
+      historyCount = 0;
+      historyWriteIndex = 0;
+      Arrays.fill(rabbitHistory, 0);
+      Arrays.fill(foxHistory, 0);
+    }
+    lastSampledHour = hour;
+
+    rabbitHistory[historyWriteIndex] = statRabbits;
+    foxHistory[historyWriteIndex] = statFoxes;
+    historyWriteIndex = (historyWriteIndex + 1) % HISTORY_SAMPLES;
+    if (historyCount < HISTORY_SAMPLES) {
+      historyCount++;
+    }
   }
 
   private void computeStats(WorldSnapshot snapshot) {
@@ -320,6 +356,66 @@ public class WorldSimPanel extends AbstractScreenPanel {
     g2.drawString(popLine, 10 + pad, 10 + pad + lineHeight + metrics.getAscent());
     g2.drawString(motiveLine, 10 + pad, 10 + pad + lineHeight * 2 + metrics.getAscent());
     g2.drawString(perfLine, 10 + pad, 10 + pad + lineHeight * 3 + metrics.getAscent());
+
+    drawPopulationChart(g2, 10, 10 + boxHeight + 6, Math.max(boxWidth, 260), metrics);
+  }
+
+  /**
+   * Rolling population curves for both species. Each is scaled to its own maximum: rabbits
+   * outnumber foxes ~5:1, so a shared axis would flatten the fox line into the baseline and hide
+   * exactly the predator dynamics worth watching.
+   */
+  private void drawPopulationChart(Graphics2D g2, int x, int y, int width, FontMetrics metrics) {
+    if (historyCount < 2) {
+      return;
+    }
+    int chartHeight = 70;
+    int pad = 6;
+    int plotHeight = chartHeight - pad * 2 - metrics.getHeight();
+    int plotTop = y + pad + metrics.getHeight();
+    int plotWidth = width - pad * 2;
+
+    g2.setColor(HUD_BACKGROUND);
+    g2.fillRoundRect(x, y, width, chartHeight, 12, 12);
+
+    int rabbitMax = Math.max(1, maxOf(rabbitHistory));
+    int foxMax = Math.max(1, maxOf(foxHistory));
+
+    g2.setColor(Color.WHITE);
+    g2.drawString(
+        String.format(
+            "last %d sim days   rabbits peak %d   foxes peak %d",
+            historyCount / 24, rabbitMax, foxMax),
+        x + pad,
+        y + pad + metrics.getAscent());
+
+    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+    plotSeries(g2, rabbitHistory, rabbitMax, RABBIT_COLOR, x + pad, plotTop, plotWidth, plotHeight);
+    plotSeries(g2, foxHistory, foxMax, FOX_COLOR, x + pad, plotTop, plotWidth, plotHeight);
+  }
+
+  private void plotSeries(
+      Graphics2D g2, int[] history, int maxValue, Color color, int x, int y, int w, int h) {
+    int[] xs = new int[historyCount];
+    int[] ys = new int[historyCount];
+    // oldest sample first: once the buffer wraps, the oldest entry sits at the write cursor
+    int oldest = historyCount < HISTORY_SAMPLES ? 0 : historyWriteIndex;
+
+    for (int i = 0; i < historyCount; i++) {
+      int value = history[(oldest + i) % HISTORY_SAMPLES];
+      xs[i] = x + (int) ((long) i * w / (historyCount - 1));
+      ys[i] = y + h - (int) ((long) value * h / maxValue);
+    }
+    g2.setColor(color);
+    g2.drawPolyline(xs, ys, historyCount);
+  }
+
+  private static int maxOf(int[] values) {
+    int max = 0;
+    for (int value : values) {
+      max = Math.max(max, value);
+    }
+    return max;
   }
 
   private void drawBiomassDots(Graphics2D g2) {

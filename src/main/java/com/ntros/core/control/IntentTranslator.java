@@ -6,4 +6,5 @@ import com.ntros.core.SimulationSpeed;
 public interface IntentTranslator {
 
   void changeSpeed(SimulationSpeed speed);
+//  void killAllFoxes();
 }

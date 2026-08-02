@@ -13,7 +13,7 @@ public class FeedingSystem extends AbstractTickSystem {
   // A fox converts only half of the prey's remaining energy; the rest is waste. At the previous
   // 100% conversion every caught rabbit was a full meal, which is how the fox population
   // exploded to 11K — real predator energy conversion is closer to 10%.
-  private static final float PREY_CONVERSION = 0.5f;
+  private static final float PREY_CONVERSION = 0.1f;
 
   public FeedingSystem(long seed) {
     super(seed);
@@ -56,8 +56,8 @@ public class FeedingSystem extends AbstractTickSystem {
 
     if (biomass[bioIdx] > 0) {
       // Take only what can actually be stored: min(bite, room left, what's there). Previously a
-      // full rabbit destroyed 5 biomass/tick while gaining nothing — one parked rabbit deleted
-      // ~7,200 biomass per sim-day. Gained and consumed are now always equal (conservation).
+      // full rabbit destroyed 5 biomass/tick while gaining nothing. One parked rabbit deleted
+      // around 7,200 biomass per sim-day. Gained and consumed are now always equal (conservation).
       float room = CREATURE_MAX_ENERGY - store.energy()[id];
       float take = Math.min(ENERGY, Math.min(room, biomass[bioIdx]));
       if (take > 0) {
@@ -69,16 +69,13 @@ public class FeedingSystem extends AbstractTickSystem {
 
   private void foxEats(World world, int id, int preyId) {
     var store = world.getCreatureStore();
-    // Kill-on-catch: predation is a discrete event, not a 5/tick faucet. The old nibbling let an
-    // adjacent fox farm a rabbit's entire energy over ~20 ticks at 100% conversion; now the prey
-    // dies once, the fox gains PREY_CONVERSION of its remaining energy (capped by the fox's own
-    // maximum), and escape has real value — a rabbit that gets away keeps everything.
 
     // Kill-on-catch: fox kills the rabbit instantly, gaining only a fraction of it's remaining hp,
     // capped by CREATURE_MAX_ENERGY max value.
     // The old 5 dmg/tick DOT effect allowed the fox to drain the rabbit's hp over 20 ticks and
-    // convert all of it to its own energy.
-    // A rabbit escaping(still alive after FLEE) keeps its energy.
+    // convert all of it to its own energy.Now the prey
+    // dies once, the fox gains PREY_CONVERSION of its remaining energy (capped by the fox's
+    // own maximum), and escape has real value — a rabbit that gets away keeps everything.
     float gain =
         Math.min(
             store.energy()[preyId] * PREY_CONVERSION, CREATURE_MAX_ENERGY - store.energy()[id]);

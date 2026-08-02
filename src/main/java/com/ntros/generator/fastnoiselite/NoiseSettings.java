@@ -27,4 +27,10 @@ public record NoiseSettings(
   public static NoiseSettings ofDefault() {
     return new NoiseSettings(0.0025f, 5, 0.0032f, 3, 0.005f, 5);
   }
+
+  // less water bodies in the world. Bigger, connected landmass
+  // smaller worlds have almost no water bodies.
+  public static NoiseSettings ofMoreLandmass() {
+    return new NoiseSettings(0.0005f, 5, 0.0032f, 8, 0.005f, 5);
+  }
 }

@@ -17,4 +17,5 @@ public final class ChannelIntentTranslator implements IntentTranslator {
   public void changeSpeed(SimulationSpeed speed) {
     channel.tryOffer(ChangeSpeedCommand.of(speed));
   }
+
 }

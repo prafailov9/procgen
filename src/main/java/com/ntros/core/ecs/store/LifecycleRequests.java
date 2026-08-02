@@ -1,12 +1,8 @@
 package com.ntros.core.ecs.store;
 
 import static com.ntros.AppConstants.CREATURES_MAX_CAPACITY;
+import static com.ntros.core.ecs.system.TickSystemHelper.isHerbivore;
 
-/**
- * Deferred birth and death command queues: systems write requests during a tick, LifecycleSystem
- * drains them at tick end. This is tick-phase machinery, not storage — kept out of CreatureStore
- * so the store stays arrays + allocation.
- */
 public final class LifecycleRequests {
 
   private int killIdx = 0;
@@ -24,6 +20,15 @@ public final class LifecycleRequests {
       requestedKills[killIdx++] = creatureId;
     }
     // a dropped request self-heals: the creature is shot again next tick
+  }
+
+  public void shootAll(byte species, CreatureStore creatureStore) {
+    var alive = creatureStore.getAlive();
+    for (int id = alive.nextSetBit(0); id >= 0; id = alive.nextSetBit(id + 1)) {
+      if (!isHerbivore(species)) {
+        shoot(id);
+      }
+    }
   }
 
   // requests birth; applied by LifecycleSystem at end of tick. Children must carry their species —

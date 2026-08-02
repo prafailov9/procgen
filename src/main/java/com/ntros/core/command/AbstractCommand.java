@@ -6,10 +6,12 @@ public abstract class AbstractCommand implements Command {
 
   protected final int commandId;
   protected final String commandName;
+  protected final CommandType commandType;
 
-  protected AbstractCommand(String commandName) {
+  protected AbstractCommand(CommandType commandType) {
     this.commandId = IdSequencer.getNextCommandId();
-    this.commandName = commandName;
+    this.commandName = commandType.name();
+    this.commandType = commandType;
   }
 
   @Override
@@ -20,5 +22,10 @@ public abstract class AbstractCommand implements Command {
   @Override
   public String getCommandName() {
     return commandName;
+  }
+
+  @Override
+  public CommandType getCommandType() {
+    return commandType;
   }
 }

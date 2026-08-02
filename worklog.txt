@@ -77,3 +77,107 @@ Coexistance Breakthrough:
 SEED: -9070669405368241458
 Small World(490x270)
 1K creatures total: 900 rabbits, 100 foxes
+The codebase state with all tuning knobs: [commit hash: 8fc4908889674af6782664bf27d653a47292dc40; desc: coexistance found]
+tuning knob changes:
+
+KNOB                 | Before   | After  | Factor|
+-------------------------------------------------|
+BASE_GROWTH     	 | 0.05	    |5.50	 |110×   |
+UPDATE_TOTAL	     | 7	    |50      |7×     |
+biomass flow         | 0.35/tick|275/tick|786×   |
+MAX_GROWTH_THRESHOLD | 5.0	    |100.0	 |20×    |
+BIOMASS_SPAWN_CHANCE | 0.012	|0.072	 |6×     |
+
+This increased herbivore food source, made it way less scarce.
+It allows rabbits to constantly find food.
+Single tile biomass has higher quantity, and much lower drain rate than before(instant eat), which
+means rabbits stay in the same place for longer. Since growth rate is extremely quick, and rabbit
+reproduction chance is already high, rabbits get aggregated at random locations, each within close distance from each other.
+These slow moving rabbit clusters allow foxes to locate and ambush rabbits, since they detect prey BEFORE prey detects them.
+On the flip side, rabbits are faster. In an endless plain world, rabbits never get caught.
+But this world is more realistic: bounded with hard stops (WATER bodies)
+Once a chase begins(fox1 HUNTs rabbit1; rabbit1 FLEEs from fox1), if the rabbit
+survives the chase, there will always be rabbits sitting idle(eating/mating) in close sight.
+
+This created the highly stable fox population.
+
+
+Post-breakthrough changes (protecting and generalizing the equilibrium):
+
+1. [FIXED] Biomass growth was an ABSOLUTE rate, not a per-area one.
+   BiomassGrowthSystem picked a flat 50 tiles/tick regardless of world size, so every world
+   received the same 275 biomass/tick no matter how much land it had:
+     - small world 490x270   =   132,300 tiles -> 275/tick
+     - big world  1920x1080  = 2,073,600 tiles -> 275/tick, over 15.7x more land
+   Initial biomass IS per-tile (BIOMASS_SPAWN_CHANCE), so big worlds started proportionally
+   stocked but regrew 15.7x slower per unit area. That is exactly the observed big-world
+   signature: rabbits explode on the standing crop (50K), crash when they hit the flow (800),
+   and settle at the flow-limited carrying capacity (~5000) which is roughly the SAME absolute
+   number the small world supports.
+   Foxes then went extinct not from lack of rabbits but from lack of rabbit DENSITY. A fox scans
+   (2*10+1)^2 = 441 tiles:
+     - small world, 1200 rabbits: ~4.0 rabbits in view -> always a target
+     - big world,   5000 rabbits: ~1.1 in view
+     - big world during the crash, 800 rabbits: ~0.17 in view -> starvation mid-chase
+   Fix: the per-tick growth budget is now worldSize * GROWTH_EVENTS_PER_TILE, calibrated from
+   this breakthrough run (50 events / 132,300 tiles). A fractional accumulator carries the
+   remainder so worlds too small to earn one whole event per tick (32x32 earns 0.39) do not lose
+   it to truncation. Food DENSITY, not food total, is now world-size independent.
+   LESSON (carries directly to the economy sim): stock vs flow. Populations boom on accumulated
+   stock and starve on renewal rate, and the two look identical for the first few days.
+
+2. [FIXED] growMeadow grew the same tile ~100 times instead of a disc: the inner loop passed the
+   center `idx` to growPlant instead of the dx/dy-offset neighbor index. Still commented out of
+   the update path, but correct now if re-enabled.
+
+3. [ADDED] EcosystemCoexistenceTest - the tripwire for this equilibrium.
+   The coexistence state lives in constants spread across the species table, growth, feeding,
+   metabolism and movement. Any of them can be nudged while refactoring and silently return the
+   sim to day-1 extinction with nothing else in the build noticing.
+     - bothSpeciesSurviveOnTheCoexistenceSeed: runs the recorded scenario (seed
+       -9070669405368241458, small world) headless for 12 sim days and asserts both species are
+       alive. 12 days covers every collapse mode seen so far (foxes died inside day 1, rabbits
+       by day 1-3). Runs the systems directly - no processor timing loop, no threads, no UI.
+     - biomassGrowthPerTileIsWorldSizeIndependent: measures growth on creature-free small and big
+       worlds and asserts per-tile regrowth matches within 2x. Before fix #1 the ratio was 15.7.
+       Creature-free on purpose: measuring net biomass in a populated world measures grazing
+       pressure, not growth.
+   Whole suite runs in ~16s.
+
+4. [ADDED] StateActor.ofEcosystem(seed) - single source of truth for tick order and per-system
+   RNG stream offsets, now used by both AppGuiBootstrapper and the regression test. A test that
+   built its own system list would keep passing while production wiring drifted.
+
+5. [ADDED] Observability v2 (partial): population history strip-chart on the HUD.
+   Ring buffer sampled once per sim-hour, 336 samples = 14 sim days. Each species is scaled to
+   its OWN maximum, because rabbits outnumber foxes ~5:1 and a shared axis flattens the fox line
+   into the baseline - hiding exactly the predator dynamics worth watching. Predator-prey
+   behaviour is a phase relationship (prey peak -> predator peak later -> prey crash) and a
+   single-frame readout cannot show it.
+   Also: HUD now counts ALL motives (wander/seek_food/flee/hunt/seek_mate), built by iterating
+   the Motive enum so new motives appear automatically.
+
+6. [DOCUMENTED] Water bodies are controlled by elevation, NOT moisture (validated against the
+   generator + classifier):
+     - elevationFrequency (first NoiseSettings param) = size/count of water bodies. Lower =
+       fewer, larger oceans. THIS is the water knob.
+     - TerrainClassifier elevation thresholds (<0.21 deep, <0.38 shallow) = total water fraction.
+     - Octaves only add coastline/terrain detail, never the number of water bodies.
+     - The moisture pair never touches water at all; it only picks GRASS vs SAND/FOREST on land.
+   Written into the NoiseSettings javadoc. Note WorldSetupPanel currently passes
+   moistureOctaves=8 (default 3) - it has no effect on water.
+
+Open questions / next experiments:
+- Is the coexistence driven by geography (river refugia) or purely by prey density? They are
+  confounded in the current run. Controlled test: same seed and tuning, world generated with no
+  water barriers (single flat continent). If coexistence survives, density was the driver; if
+  foxes die, the refugia hypothesis is confirmed as load-bearing.
+  Reference: Huffaker 1958 - predator-prey systems go extinct in uniform environments and
+  persist for months once spatial barriers are added.
+- Now that growth scales with area, re-run the big world: the small-world equilibrium should
+  transfer. This is the main untested prediction of fix #1.
+- Fox stability (190-300 while rabbits swing 800-1500) traces to FOX.reproductionChance=0.0015
+  being ~7x lower than rabbits: fox demography acts as a low-pass filter that damps oscillation.
+  Worth keeping.
+- Fox:rabbit ratio ~1:5 is high biologically (real systems run 1:100+), traceable to
+  PREY_CONVERSION=0.5 vs ~0.1 in nature. Knob to turn if leaner predators are wanted.

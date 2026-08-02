@@ -40,7 +40,7 @@ public final class TerrainClassifier {
           ? terrainCodec.encodeTile(GRASS)
           : terrainCodec.encodeTile(FOREST); // lowland
     }
-    if (elevation < 0.88f) {
+    if (elevation < 0.9901f) {
       return terrainCodec.encodeTile(HILL);
     }
     return terrainCodec.encodeTile(MOUNTAIN);

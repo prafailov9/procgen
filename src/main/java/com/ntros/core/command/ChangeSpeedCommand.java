@@ -2,6 +2,8 @@ package com.ntros.core.command;
 
 import com.ntros.core.SimulationSpeed;
 
+import static com.ntros.core.command.CommandType.PROC;
+
 public class ChangeSpeedCommand extends AbstractCommand {
 
   private static final String COMMAND_NAME = "CHANGE_SPEED";
@@ -9,7 +11,7 @@ public class ChangeSpeedCommand extends AbstractCommand {
   private final SimulationSpeed speed;
 
   private ChangeSpeedCommand(String commandName, SimulationSpeed speed) {
-    super(commandName);
+    super(PROC);
     this.speed = speed;
   }
 
@@ -22,5 +24,10 @@ public class ChangeSpeedCommand extends AbstractCommand {
 
   public SimulationSpeed getSpeed() {
     return speed;
+  }
+
+  @Override
+  public CommandType getCommandType() {
+    return PROC;
   }
 }

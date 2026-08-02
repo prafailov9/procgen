@@ -16,14 +16,31 @@ public class BiomassGrowthSystem extends AbstractTickSystem {
 
   private final TerrainCodec terrainCodec = new TerrainCodec();
   private static final float BASE_GROWTH = 5.50f;
-  private static final int UPDATE_TOTAL = 50;
   private static final float MAX_GROWTH_THRESHOLD = 100.0f;
   private static final float NIL = 0.000000000000000f;
 
   /**
-   * Seeded once here, never re-seeded: calling setSeed per tick resets the sequence and makes every
-   * tick select the same tiles forever.
+   * Growth events per tile per tick, calibrated from the coexistence run: 50 events/tick on the
+   * 490x270 small world.
+   *
+   * <p>This used to be a flat 50 events/tick for ANY world size, which made biomass flow an
+   * absolute rate instead of a per-area one. A big world (1920x1080) has 15.7x more tiles but got
+   * the same 275 biomass/tick, so per-tile regrowth was 15.7x slower there. Initial biomass IS
+   * per-tile, so big worlds started proportionally stocked and then starved: rabbits exploded on
+   * the standing crop, crashed to the (identical, absolute) flow-limited carrying capacity, and
+   * foxes went extinct because the same rabbit count spread over 15.7x the area drops prey DENSITY
+   * below what a fox's vision can find. Scaling by area makes the equilibrium
+   * world-size-independent.
    */
+  private static final float GROWTH_EVENTS_PER_TILE = 50.0f / (490.0f * 270.0f);
+
+  /**
+   * Fractional carry for the per-tick event budget, same idea as the processor's time bucket:
+   * worlds too small to earn a whole event per tick accumulate the remainder instead of losing it
+   * to truncation (a 32x32 world earns 0.39 events/tick).
+   */
+  private float pendingGrowthEvents;
+
   public BiomassGrowthSystem(long seed) {
     super(seed);
   }
@@ -39,8 +56,13 @@ public class BiomassGrowthSystem extends AbstractTickSystem {
     int height = world.getHeight();
     int worldSize = width * height;
 
+    // growth budget scales with world area so food DENSITY, not food total, stays constant
+    pendingGrowthEvents += worldSize * GROWTH_EVENTS_PER_TILE;
+    int growthEvents = (int) pendingGrowthEvents;
+    pendingGrowthEvents -= growthEvents;
+
     // select N random indexes, if can grow, update quantity
-    for (int i = 0; i < UPDATE_TOTAL; i++) {
+    for (int i = 0; i < growthEvents; i++) {
       int idx = rng.nextInt(worldSize);
       Tile tile = terrainCodec.decode(terrain[idx]);
       if (cannotGrowHere(tile)) {
@@ -49,22 +71,33 @@ public class BiomassGrowthSystem extends AbstractTickSystem {
       growPlant(biomass, terrain, idx, width, height);
       // Once clusters are eaten, food is very hard to find
       // occasionally grow a whole cluster
-//      if (MEADOW_SPAWN_CHANCE >= rng.nextFloat()) {
-//        growMeadow(biomass, terrain, idx, width, height);
-//      } else {
-//        growPlant(biomass, terrain, idx, width, height);
-//      }
+      //      if (MEADOW_SPAWN_CHANCE >= rng.nextFloat()) {
+      //        growMeadow(biomass, terrain, idx, width, height);
+      //      } else {
+      //        growPlant(biomass, terrain, idx, width, height);
+      //      }
     }
   }
 
   private void growMeadow(float[] biomass, byte[] terrain, int idx, int width, int height) {
     int meadowRadius = rng.nextInt(3, 7);
+    int centerX = idx % width;
+    int centerY = idx / width;
     for (int dx = -meadowRadius; dx <= meadowRadius; dx++) {
       for (int dy = -meadowRadius; dy <= meadowRadius; dy++) {
         if (dx * dx + dy * dy > meadowRadius * meadowRadius) {
           continue;
         }
-        growPlant(biomass, terrain, idx, width, height);
+        int nx = centerX + dx;
+        int ny = centerY + dy;
+        if (!inBounds(nx, ny, width, height)) {
+          continue;
+        }
+        int neighborIdx = ny * width + nx;
+        if (cannotGrowHere(terrainCodec.decode(terrain[neighborIdx]))) {
+          continue;
+        }
+        growPlant(biomass, terrain, neighborIdx, width, height);
       }
     }
   }

@@ -132,7 +132,7 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     TerrainGenerationSettings settings =
         new TerrainGenerationSettings(
             new WorldTerrainSettings(selectedWorldSize, seed),
-            new NoiseSettings(0.0025f, 5, 0.0032f, 8, 0.005f, 5));
+            new NoiseSettings(0.0005f, 5, 0.0032f, 8, 0.005f, 5));
 
     // TODO: add proceed or regenerate buttons
     // generation runs off the EDT; the handler switches to the sim screen when it finishes

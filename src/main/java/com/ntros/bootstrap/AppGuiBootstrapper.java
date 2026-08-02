@@ -100,20 +100,9 @@ public final class AppGuiBootstrapper {
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
 
-    // Create actor. Each system derives a distinct RNG stream from the world seed so no two
-    // systems make correlated random choices.
-    Actor actor =
-        new StateActor(
-            List.of(
-                new BiomassGrowthSystem(world.getSeed()),
-                // index rebuilds after movement so Feeding/Reproduction query final positions
-                new SpatialIndexSystem(),
-                new BehaviorSystem(world.getSeed() ^ 0x3D4F5645L),
-                new MovementSystem(world.getSeed() ^ 0x4D4F5645L),
-                new FeedingSystem(world.getSeed() ^ 0x6D4F5645L),
-                new MetabolismSystem(world.getSeed() ^ 0x5D4F5645L),
-                new ReproductionSystem(world.getSeed() ^ 0x9D4F5645L),
-                new LifecycleSystem(world.getSeed() ^ 0x7D4F5645L)));
+    // Create actor. Tick order and per-system RNG streams live in the factory so the ecosystem
+    // regression test runs exactly this wiring.
+    Actor actor = StateActor.ofEcosystem(world.getSeed());
 
     // The State Updater
     log.info("Initialising State Processor...");
