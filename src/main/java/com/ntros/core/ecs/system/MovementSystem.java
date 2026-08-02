@@ -1,66 +1,91 @@
 package com.ntros.core.ecs.system;
 
-import static com.ntros.core.ecs.store.CreatureType.RABBIT;
-import static com.ntros.core.ecs.system.TickSystemHelper.inBounds;
-import static com.ntros.core.ecs.system.TickSystemHelper.isWalkable;
+import static com.ntros.core.ecs.system.TickSystemHelper.*;
 import static com.ntros.core.world.terrain.Tile.*;
 
-import com.ntros.core.ecs.store.CreatureType;
+import com.ntros.core.ecs.data.Motive;
 import com.ntros.core.world.World;
 import com.ntros.core.world.terrain.Tile;
-import java.util.List;
 
 public class MovementSystem extends AbstractTickSystem {
 
-  private static final List<CreatureType> CREATURE_TYPES = List.of(CreatureType.values());
-  private static final float RABBIT_STEP_CHANCE = 0.07f;
-  private static final float FOX_STEP_CHANCE = 0.12f;
   private static final float MOVE_COST = 0.01f;
   private static final float SMOOTH_STEP_CAP = 0.99f;
+  // cap on baseStepChance * urgency — even a panicked creature isn't teleporting
+  private static final float MAX_STEP_CHANCE = 0.90f;
 
   public MovementSystem(long seed) {
     super(seed);
   }
 
-  // just do a random walk, one step per creature. Moving costs energy. How much energy depends on
-  // the terrain
+  // Executes intents written by BehaviorSystem: directed steps toward (or away from) targets,
+  // random walk otherwise. Moving costs energy; harder terrain costs more.
   @Override
   public void update(World world, long tick) {
-    var creatures = world.getCreatureStore();
-    var terrain = world.getTerrain();
-    int width = world.getWidth();
-    int height = world.getHeight();
+    var store = world.getCreatureStore();
+    var alive = store.getAlive();
 
-    var liveOnes = creatures.getAlive();
+    for (int id = alive.nextSetBit(0); id >= 0; id = alive.nextSetBit(id + 1)) {
+      Motive motive = getMotive(store.intentMotive()[id]);
 
-    for (int id = liveOnes.nextSetBit(0); id >= 0; id = liveOnes.nextSetBit(id + 1)) {
-      if (!canStep(id, creatures.species())) {
+      // urgency scales the step chance: purposeful creatures move more often than idle ones.
+      // Without this a "fleeing" rabbit ambled at the same 7%/tick as a grazing one, so every
+      // chase ended in a kill.
+      if (!canStep(store.species()[id], motive)) {
         continue;
       }
 
-      // choose dir
-      int dx = rng.nextInt(3) - 1;
-      int dy = rng.nextInt(3) - 1;
-
-      // look up if next step is possible
-      int nx = (int) creatures.x()[id] + dx;
-      int ny = (int) creatures.y()[id] + dy;
-      if (!inBounds(nx, ny, width, height)) {
+      int dirIdx = store.intentDir()[id];
+      // Exclusive branches: act on a valid directed intent OR wander — never both. The old
+      // fall-through could act twice per tick, and WANDER fell into an empty switch case, so
+      // creatures with no target froze in place instead of exploring for food beyond vision.
+      if (motive == Motive.WANDER || !hasQueuedIntent(dirIdx)) {
+        wander(world, id);
         continue;
       }
 
-      // lookup the tile
-      Tile tile = terrainCodec.decode(terrain[ny * width + nx]);
-      if (!isWalkable(tile)) {
-        continue;
+      var dir = getNeighborCoordinates(dirIdx);
+      int dx = dir.x();
+      int dy = dir.y();
+      // Behavior stores the direction TOWARD the sensed target; fleeing means stepping the
+      // exact opposite way — without this inversion rabbits sprinted into the fox's mouth
+      if (motive == Motive.FLEE) {
+        dx = -dx;
+        dy = -dy;
       }
-      // apply difficulty based on tile
-      float difficultyMod = getDifficultTerrainMod(tile);
-      // update pos and energy drain
-      creatures.x()[id] += dx;
-      creatures.y()[id] += dy;
-      creatures.energy()[id] -= MOVE_COST + difficultyMod;
+      step(world, id, dx, dy);
     }
+  }
+
+  // choose a step in a random dir: exploration, the only way to find food beyond vision range
+  private void wander(World world, int id) {
+    int dx = rng.nextInt(3) - 1;
+    int dy = rng.nextInt(3) - 1;
+
+    step(world, id, dx, dy);
+  }
+
+  private void step(World world, int id, int dx, int dy) {
+    var store = world.getCreatureStore();
+
+    // look up if next step is possible
+    int nx = (int) store.x()[id] + dx;
+    int ny = (int) store.y()[id] + dy;
+    if (!inBounds(nx, ny, world.getWidth(), world.getHeight())) {
+      return;
+    }
+
+    // lookup the tile
+    Tile tile = terrainCodec.decode(world.getTerrain()[ny * world.getWidth() + nx]);
+    if (!isWalkable(tile)) {
+      return;
+    }
+    // apply difficulty based on tile
+    float difficultyMod = getDifficultTerrainMod(tile);
+    // update pos and energy drain
+    store.x()[id] += dx;
+    store.y()[id] += dy;
+    store.energy()[id] -= MOVE_COST + difficultyMod;
   }
 
   // TODO: implement smooth steps later
@@ -71,12 +96,16 @@ public class MovementSystem extends AbstractTickSystem {
     return v + rng.nextFloat(SMOOTH_STEP_CAP);
   }
 
-  private boolean canStep(int id, byte[] species) {
-    CreatureType creatureType = CREATURE_TYPES.get(species[id]);
-    if (creatureType == RABBIT) {
-      return rng.nextFloat() <= RABBIT_STEP_CHANCE;
-    }
-    return rng.nextFloat() <= FOX_STEP_CHANCE;
+  private boolean hasQueuedIntent(int idx) {
+    return idx >= 0 && idx < NEIGHBOR_COORDINATES_COUNT;
+  }
+
+  // step chance = species base * motive urgency, both read from the data tables.
+  // No per-creature logging in here: this runs for every creature every tick — the HUD's motive
+  // counts carry the same information continuously without dragging tps down.
+  private boolean canStep(byte species, Motive motive) {
+    float chance = getCreatureType(species).baseStepChance() * motive.urgency();
+    return rng.nextFloat() <= Math.min(MAX_STEP_CHANCE, chance);
   }
 
   private float getDifficultTerrainMod(Tile tile) {
@@ -88,5 +117,4 @@ public class MovementSystem extends AbstractTickSystem {
     }
     return 0.00f;
   }
-
 }

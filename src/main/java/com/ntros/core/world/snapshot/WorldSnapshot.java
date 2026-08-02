@@ -28,6 +28,8 @@ public record WorldSnapshot(
             world.getCreatureStore().y().clone(),
             world.getCreatureStore().energy().clone(),
             world.getCreatureStore().age().clone(),
-            world.getCreatureStore().species().clone()));
+            world.getCreatureStore().species().clone(),
+            // motives survive until publish because Behavior clears at tick START, not end
+            world.getCreatureStore().intentMotive().clone()));
   }
 }

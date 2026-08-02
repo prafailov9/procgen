@@ -1,22 +1,20 @@
 package com.ntros.graphics.rendering.panel;
 
-import com.ntros.graphics.rendering.data.Dimensions2d;
-import com.ntros.Main;
-import com.ntros.core.world.terrain.TerrainGenerationSettings;
-import com.ntros.core.world.terrain.WorldTerrainSettings;
-import com.ntros.generator.fastnoiselite.NoiseSettings;
-import com.ntros.graphics.rendering.data.WorldSize;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.swing.*;
-import java.awt.*;
-import java.util.Random;
-import java.util.function.Consumer;
-
 import static com.ntros.AppConstants.WORLD_SIZES_ALLOWLIST;
 import static com.ntros.graphics.ScreenType.MAIN_MENU;
 import static com.ntros.graphics.rendering.data.WorldSize.MEDIUM;
+
+import com.ntros.core.world.terrain.TerrainGenerationSettings;
+import com.ntros.core.world.terrain.WorldTerrainSettings;
+import com.ntros.generator.fastnoiselite.NoiseSettings;
+import com.ntros.graphics.rendering.data.Dimensions2d;
+import com.ntros.graphics.rendering.data.WorldSize;
+import java.awt.*;
+import java.util.Random;
+import java.util.function.Consumer;
+import javax.swing.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class WorldSetupPanel extends AbstractScreenPanel {
 
@@ -79,6 +77,8 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     form.add(seedField);
     form.add(Box.createVerticalStrut(8));
     form.add(randomSeedButton);
+
+    // TODO: switch the label when an option is selected
     form.add(new JLabel("World size:"));
     form.add(worldSizeSelection);
     form.add(Box.createVerticalStrut(20));
@@ -126,10 +126,13 @@ public class WorldSetupPanel extends AbstractScreenPanel {
     }
     log.info("Starting Generation...");
     // TODO: let the player tune the Noise settings
+    // Water bodies: first param (elevationFrequency) sets their size/count, and the classifier's
+    // elevation thresholds set the total water fraction. Octaves only add coastline detail — the
+    // moistureOctaves=8 here (vs 3 default) does NOT affect water; see NoiseSettings javadoc.
     TerrainGenerationSettings settings =
         new TerrainGenerationSettings(
             new WorldTerrainSettings(selectedWorldSize, seed),
-            new NoiseSettings(0.0025f, 5, 0.0032f, 3, 0.005f, 5));
+            new NoiseSettings(0.0025f, 5, 0.0032f, 8, 0.005f, 5));
 
     // TODO: add proceed or regenerate buttons
     // generation runs off the EDT; the handler switches to the sim screen when it finishes

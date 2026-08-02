@@ -1,9 +1,9 @@
-package com.ntros.core.ecs.store;
+package com.ntros.core.ecs.data;
 
 public record Occupancy(int id, int x, int y, boolean canExist) {
 
   // nothing usable found
-  public static Occupancy ofForbidden() {
+  public static Occupancy ofNothing() {
     return new Occupancy(-1, -1, -1, false);
   }
 

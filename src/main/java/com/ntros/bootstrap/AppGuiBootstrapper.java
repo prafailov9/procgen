@@ -106,6 +106,9 @@ public final class AppGuiBootstrapper {
         new StateActor(
             List.of(
                 new BiomassGrowthSystem(world.getSeed()),
+                // index rebuilds after movement so Feeding/Reproduction query final positions
+                new SpatialIndexSystem(),
+                new BehaviorSystem(world.getSeed() ^ 0x3D4F5645L),
                 new MovementSystem(world.getSeed() ^ 0x4D4F5645L),
                 new FeedingSystem(world.getSeed() ^ 0x6D4F5645L),
                 new MetabolismSystem(world.getSeed() ^ 0x5D4F5645L),

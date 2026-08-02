@@ -7,6 +7,8 @@ import com.ntros.core.ecs.store.CreatureStore;
 import com.ntros.core.ecs.store.LifecycleRequests;
 import com.ntros.generator.Terrain;
 
+import java.util.Arrays;
+
 /**
  * Representation of the 2D Simulation World. Updated by the StateProcessor, displayed by the
  * StateRenderer. Houses all visible and/or interactable game objects.

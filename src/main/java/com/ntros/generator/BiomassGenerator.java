@@ -1,6 +1,6 @@
 package com.ntros.generator;
 
-import static com.ntros.AppConstants.CLUSTER_BIOMASS_CHANCE;
+import static com.ntros.AppConstants.MEADOW_SPAWN_CHANCE;
 import static com.ntros.AppConstants.BIOMASS_SPAWN_CHANCE;
 
 import com.ntros.core.world.terrain.TerrainCodec;
@@ -54,7 +54,7 @@ public class BiomassGenerator {
         }
         // roll dice to decide if cluster or single tile
         // small chance for clusters
-        if (CLUSTER_BIOMASS_CHANCE >= rng.nextFloat()) {
+        if (MEADOW_SPAWN_CHANCE >= rng.nextFloat()) {
           generateBioCluster(x, y, biomass);
         } else {
           tryGrowBio(idx, biomass);

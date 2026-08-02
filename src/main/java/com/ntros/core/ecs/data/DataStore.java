@@ -1,4 +1,4 @@
-package com.ntros.core.ecs.store;
+package com.ntros.core.ecs.data;
 
 import java.util.BitSet;
 

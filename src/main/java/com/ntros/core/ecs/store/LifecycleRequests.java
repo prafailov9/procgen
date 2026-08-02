@@ -1,6 +1,6 @@
 package com.ntros.core.ecs.store;
 
-import static com.ntros.AppConstants.CREATURES_CAPACITY;
+import static com.ntros.AppConstants.CREATURES_MAX_CAPACITY;
 
 /**
  * Deferred birth and death command queues: systems write requests during a tick, LifecycleSystem
@@ -10,15 +10,15 @@ import static com.ntros.AppConstants.CREATURES_CAPACITY;
 public final class LifecycleRequests {
 
   private int killIdx = 0;
-  private final int[] requestedKills = new int[CREATURES_CAPACITY];
+  private final int[] requestedKills = new int[CREATURES_MAX_CAPACITY];
 
   private int spawnIdx = 0;
-  private final int[] spawnPosX = new int[CREATURES_CAPACITY];
-  private final int[] spawnPosY = new int[CREATURES_CAPACITY];
-  private final float[] spawnEnergy = new float[CREATURES_CAPACITY];
-  private final byte[] spawnSpecies = new byte[CREATURES_CAPACITY];
+  private final int[] spawnPosX = new int[CREATURES_MAX_CAPACITY];
+  private final int[] spawnPosY = new int[CREATURES_MAX_CAPACITY];
+  private final float[] spawnEnergy = new float[CREATURES_MAX_CAPACITY];
+  private final byte[] spawnSpecies = new byte[CREATURES_MAX_CAPACITY];
 
-  // requests kill; applied by LifecycleSystem at end of tick (mark, don't kill)
+  // requests kill; applied by LifecycleSystem at end of each tick
   public void shoot(int creatureId) {
     if (killIdx < requestedKills.length) {
       requestedKills[killIdx++] = creatureId;

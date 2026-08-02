@@ -1,8 +1,8 @@
 package com.ntros.generator;
 
 import static com.ntros.AppConstants.*;
-import static com.ntros.core.ecs.store.CreatureType.FOX;
-import static com.ntros.core.ecs.store.CreatureType.RABBIT;
+import static com.ntros.core.ecs.data.CreatureType.FOX;
+import static com.ntros.core.ecs.data.CreatureType.RABBIT;
 
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
@@ -38,7 +38,7 @@ public final class CreatureSpawner {
 
     Set<Integer> takenPositions = new HashSet<>();
 
-    for (int i = 0; i < CREATURES_CAPACITY; i++) {
+    for (int i = 0; i < CREATURES_INITIAL_CAPACITY; i++) {
       int randIdx = rng.nextInt(worldSize);
       Tile tile = terrainCodec.decode(terrain.tiles()[randIdx]);
       // roll dice to spawn on a valid tile

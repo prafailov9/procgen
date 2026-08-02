@@ -39,7 +39,9 @@ public class SimClock implements TickingClock {
 
     @Override
     public void jump(long t) {
-        time = t;
+        if (t > time) {
+            time = t;
+        }
     }
 
     @Override

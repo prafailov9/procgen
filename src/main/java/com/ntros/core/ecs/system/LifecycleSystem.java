@@ -1,6 +1,10 @@
 package com.ntros.core.ecs.system;
 
+import com.ntros.core.ecs.store.CreatureStore;
+import com.ntros.core.ecs.store.LifecycleRequests;
 import com.ntros.core.world.World;
+
+import java.util.BitSet;
 
 import static com.ntros.AppConstants.CREATURE_START_AGE;
 
@@ -22,25 +26,11 @@ public class LifecycleSystem extends AbstractTickSystem {
     var requests = world.getLifecycleRequests();
     var alive = store.getAlive();
 
-    // cull
-    int[] requestedKills = requests.getRequestedKills();
-    int killCount = requests.killRequestCount();
-    for (int i = 0; i < killCount; i++) {
-      int id = requestedKills[i];
-      // the same creature can be requested twice in one tick (starved AND eaten);
-      // the first request wins, or the freelist would receive the id twice
-      if (!alive.get(id)) {
-        continue;
-      }
-      store.kill(id);
-      store.x()[id] = NIL_FLOAT;
-      store.y()[id] = NIL_FLOAT;
-      store.energy()[id] = NIL_FLOAT;
-      store.age()[id] = 0;
-    }
-    requests.clearKillRequests();
+    cullMarked(requests, alive, store);
+    giveLife(requests, store);
+  }
 
-    // give life: apply only this tick's requests, not the buffer's full capacity
+  private void giveLife(LifecycleRequests requests, CreatureStore store) {
     int spawnCount = requests.spawnRequestCount();
     int[] spawnPosX = requests.getSpawnPosX();
     int[] spawnPosY = requests.getSpawnPosY();
@@ -59,5 +49,24 @@ public class LifecycleSystem extends AbstractTickSystem {
       store.age()[spawnedCreatureId] = CREATURE_START_AGE;
     }
     requests.clearSpawnRequests();
+  }
+
+  private void cullMarked(LifecycleRequests requests, BitSet alive, CreatureStore store) {
+    int[] requestedKills = requests.getRequestedKills();
+    int killCount = requests.killRequestCount();
+    for (int i = 0; i < killCount; i++) {
+      int id = requestedKills[i];
+      // the same creature can be requested twice in one tick (starved AND eaten)
+      // the first request wins, to prevent the freelist frm receiving the id twice
+      if (!alive.get(id)) {
+        continue;
+      }
+      store.kill(id);
+      store.x()[id] = NIL_FLOAT;
+      store.y()[id] = NIL_FLOAT;
+      store.energy()[id] = NIL_FLOAT;
+      store.age()[id] = 0;
+    }
+    requests.clearKillRequests();
   }
 }

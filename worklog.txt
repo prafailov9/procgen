@@ -1,8 +1,31 @@
 I. Current issues:
 1. [FIXED] Swing window is tiny and not responding to different values for width and height. WorldScreen dimensions getter was returning hardcoded 800x800 values. Swapped them with world dimensions.
-2.[FIXED] Zooming in/out is not working. Zooming in is needed to select a starting territory and further generation of resources on top of the terrain.
+2. [FIXED] Zooming in/out is not working. Zooming in is needed to select a starting territory and further generation of resources on top of the terrain.
 3. Let the player draw on the world, once a generated world is presented to them, to refine it as they wish before the simulation starts.
 4. Allow regeneration with a key press
+5. [FIXED] Sim laggy at 5K creatures (tps 11, paint 430ms). Two causes: creatureAt was a linear
+   scan (fixed with the per-tile spatial index) and the renderer filled thousands of AA ellipses
+   per paint (fixed with the pre-baked ARGB overlay: paint is now two image blits).
+6. [FIXED] Creatures formed vertical lines: the vision scan was an asymmetric downward fan
+   (broken loop bounds), so everyone sensed targets on one side. Replaced with symmetric
+   expanding square rings.
+7. [FIXED] Population always collapsed by day 1. Four stacked causes:
+   - rabbits could never seek food (food positions carry id=-1, the intent check required an id)
+   - rabbits fled TOWARD foxes (flee direction was never inverted)
+   - foxes ate at range from a phantom position (feeding used the vision scan and passed x twice)
+   - hungry rabbits ignored predators (flee intent was overwritten by the eat/mate scan)
+8. [FIXED] Fox population exploded to 11K then collapsed after prey extinction. Added the three
+   classic predator-prey stabilizers: per-species reproduction rates (species table), kill-on-catch
+   with 50% energy conversion instead of 5/tick nibble-farming, and a satiation gate so full foxes
+   stop killing. Plus motive-scaled step chances so fleeing prey can outrun hunting predators.
+9. [FIXED] Creatures with no sensed target froze in place: cleared intent byte 0 parsed as a
+   valid direction (NORTH) while WANDER fell into an empty switch case. Cleared intents are now
+   NO_DIR and Movement's branches are exclusive (directed step OR wander, never both/neither).
+10. Age never advances (short[] age sits at start value). Plan: age in DAYS, incremented in
+    Metabolism on day rollover (tick % 1440 == 0) — also avoids short overflow.
+11. Tuning: verify first sustained coexistence (rabbit waves with fox waves lagging behind).
+    Watch HUD for out-of-phase population oscillation.
+
 II. Current Goals:
 1. Done:
 - [DONE] have a MVP SpeedChange command.
@@ -10,13 +33,47 @@ II. Current Goals:
     Verify with logs.
 - [DONE] Implement Publication Algorithm.
 - [DONE] Figure out how Commands can be generated from player actions(keyboard, mouse).
+- [DONE] Implement Command classes.
+- [DONE] Scaffold the ECS design.
+- [DONE] Implement an MVP ECS for one unit. Verify it responds to state commands/changes.
+- [DONE] Biomass layer: generation (clusters + singles), stochastic growth system, lush-green
+    density rendering.
+- [DONE] Creatures: SoA CreatureStore (freelist + alive bitset), spawner, rendering with
+    detail-zoom ellipses / overview pixels.
+- [DONE] Systems: Growth, SpatialIndex, Behavior, Movement, Feeding, Metabolism, Reproduction,
+    Lifecycle (the only killer/spawner, drains deferred birth/death queues).
+- [DONE] Intent architecture: Behavior senses and writes intents (direction byte indexing the
+    neighbor tables + motive byte), Movement executes them. Motives carry urgency multipliers.
+- [DONE] Species table: all per-species tuning (step chance, vision, reproduction, satiation)
+    lives on the CreatureType enum, indexed by the species byte.
+- [DONE] Observability v1: HUD with sim clock, populations, motive counts (flee/hunt), biomass
+    total, tps/fps/paint-ms.
+- [DONE] Implement Day/Night cycle (cosine darkness tint from the sim clock).
+- [DONE] Camera: pan (WASD + middle-mouse drag), cursor-anchored zoom, cover-scale clamping.
+- [DONE] Interpolated creature motion at detail zoom (previous-snapshot lerp, 60fps).
+- [DONE] Terrain micro-variation (deterministic per-tile brightness jitter).
 2. Future:
-- Implement Command classes.
 - Implement multiple generation strategies for objects on top of the world
     and make world+objects generation customizable based on player preference.
-- Scaffold the ECS design.
-- Implement an MVP ECS for one unit. Verify it responds to state commands/changes.
-- Implement an animal entity with age. Verify aging is relative to the Simulation Speed.
-- Implement Day/Night cycle.
-- Implement Seasons cycle.
-- Add an Observability layers. Its goal is to track statistics across all systems
+- Implement animal aging (in days) + lifespan death. Verify aging is relative to the Simulation Speed.
+- Implement Seasons cycle (growth rates modulated by day-of-year).
+- Observability v2: population history strip-chart on the HUD, click-to-inspect tile/creature,
+    per-system tick timing.
+- Pixel-art sprites at detail zoom (rabbit/fox silhouettes, direction flip, walk frames).
+- REST and DRINK motives (fresh water exists in terrain already).
+- Fleeing away from map edges (corner traps), herd/pack behaviors.
+- Save/load, settings screen, pause menu wiring (ESC).
+
+III. Architecture notes (see Simulation_Architecture.txt and Ecosystem_Rules.txt):
+- One owner: sim thread owns the World; UI sees immutable snapshots via AtomicReference.
+- Commands flow UI -> sim through the channel; snapshots flow sim -> UI. Two one-way pipes.
+- Systems are stateless, run in fixed order, all randomness derives from the world seed with
+    per-system stream offsets. Same seed = same history.
+- Energy is the only currency: sun -> biomass -> rabbit -> fox. No system creates energy for a
+    creature except by taking it from somewhere else.
+
+
+Coexistance Breakthrough:
+SEED: -9070669405368241458
+Small World(490x270)
+1K creatures total: 900 rabbits, 100 foxes

@@ -1,7 +1,7 @@
 package com.ntros.graphics.rendering.panel.sim;
 
 import com.ntros.core.world.terrain.Tile;
-import com.ntros.core.ecs.store.CreatureType;
+import com.ntros.core.ecs.data.CreatureType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +23,9 @@ public class WorldColorsUtils {
   public static final Color EMPTY_COLOR = Color.BLACK;
 
   // TODO: Extend with different types
-  public static final int FOOD_COLOR_HEX = 0x00E6FF59;
+  // deep lush green: biomass renders as vegetation density on the terrain, not as alien dots —
+  // dense food reads as rich meadow, grazed land visibly pales
+  public static final int FOOD_COLOR_HEX = 0x000E7A0E;
 
   public static final Color RABBIT_COLOR = new Color(248, 246, 240);
   public static final Color FOX_COLOR = new Color(255, 106, 0);

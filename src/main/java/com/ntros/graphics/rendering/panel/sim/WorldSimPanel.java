@@ -4,7 +4,8 @@ import static com.ntros.graphics.rendering.panel.sim.WorldColorsUtils.*;
 
 import com.ntros.core.SimulationSpeed;
 import com.ntros.core.control.IntentTranslator;
-import com.ntros.core.ecs.store.CreatureType;
+import com.ntros.core.ecs.data.CreatureType;
+import com.ntros.core.ecs.data.Motive;
 import com.ntros.core.world.snapshot.CreatureSnapshot;
 import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.graphics.rendering.panel.AbstractScreenPanel;
@@ -17,6 +18,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.util.Arrays;
 
 /**
@@ -31,8 +33,9 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private static final double MAX_RELATIVE_ZOOM = 74.0;
   private static final double KEYBOARD_PAN_STEP = 74.0;
   private static final int ALPHA_RGB_MAX_VALUE = 256;
-  // below this pixels-per-tile scale, biomass renders as flat rects instead of AA ellipses
-  private static final double DETAIL_ZOOM_THRESHOLD = 3.0;
+  // below this pixels-per-tile scale, biomass+creatures render as one pre-baked overlay image
+  // (two blits per paint); above it, the visible tile count is small enough for pretty AA ellipses
+  private static final double DETAIL_ZOOM_THRESHOLD = 8.0;
   private static final int TICKS_PER_DAY = 1440; // 1 tick = 1 sim minute
   private static final Font HUD_FONT = new Font(Font.MONOSPACED, Font.BOLD, 13);
   private static final Color HUD_BACKGROUND = new Color(0, 0, 0, 150);
@@ -40,6 +43,11 @@ public class WorldSimPanel extends AbstractScreenPanel {
   // latest snapshot received from the sim; only ever replaced, never mutated
   private WorldSnapshot worldSnapshot;
   private CreatureSnapshot creatureSnapshot;
+  // previous snapshot's creatures + arrival timing: at detail zoom, positions are interpolated
+  // across the interval between snapshots so creatures glide instead of teleporting 10x/sec
+  private CreatureSnapshot previousCreatureSnapshot;
+  private long lastSnapshotNanos;
+  private long interpSpanNanos;
   // prebuilt rendering image of the snapshot
   private BufferedImage cachedImage;
   private final Ellipse2D cacheBiomassDot = new Ellipse2D.Double();
@@ -52,10 +60,19 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private int[] pixelBuffer;
   // terrain content of the last rasterized snapshot; skip the 2M-pixel rebuild when unchanged
   private byte[] lastTerrain;
+  // biomass + creatures baked per snapshot as one ARGB layer; painting it is a single blit
+  // instead of up to hundreds of thousands of per-tile shape calls
+  private BufferedImage overlayImage;
+  private int[] overlayPixels; // direct raster access into overlayImage
   // HUD stats, recomputed once per new snapshot
   private int statRabbits;
   private int statFoxes;
   private double statBiomassTotal;
+  // motive counts: what the population is doing right now — replaces per-creature hot-loop
+  // logging with continuous aggregated observability
+  // one counter per Motive ordinal, across all species — the full picture of what the
+  // population is doing, not just flee/hunt
+  private final int[] statMotiveCounts = new int[Motive.values().length];
   // render health: paints per second and cost of the last paint
   private int fpsCounter;
   private int statFps;
@@ -109,11 +126,25 @@ public class WorldSimPanel extends AbstractScreenPanel {
 
   /** Accepts the latest published snapshot. Must be called on the EDT. */
   public void present(WorldSnapshot next) {
-    if (next == null || next == worldSnapshot) {
-      return; // nothing new to show
+    if (next == null) {
+      return;
+    }
+    if (next == worldSnapshot) {
+      // no new sim state, but at detail zoom we keep repainting at timer rate so the
+      // interpolated creature motion stays smooth between snapshots
+      if (scale >= DETAIL_ZOOM_THRESHOLD && viewInitialized) {
+        repaint();
+      }
+      return;
     }
     boolean dimensionsChanged =
         worldSnapshot == null || worldSnapshot.width() != next.width() || worldSnapshot.height() != next.height();
+
+    // shift current -> previous for interpolation; measure the actual inter-arrival span
+    previousCreatureSnapshot = dimensionsChanged ? null : creatureSnapshot;
+    long arrival = System.nanoTime();
+    interpSpanNanos = Math.min(500_000_000L, arrival - lastSnapshotNanos);
+    lastSnapshotNanos = arrival;
 
     worldSnapshot = next;
     creatureSnapshot = worldSnapshot.creatureSnapshot();
@@ -133,6 +164,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
       lastTerrain = next.terrain();
     }
     computeStats(next);
+    rebuildOverlay(next);
     // Reset the view only when loading a differently-sized world, not every tick
     if (dimensionsChanged) {
       viewInitialized = false;
@@ -144,6 +176,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
   private void computeStats(WorldSnapshot snapshot) {
     int rabbits = 0;
     int foxes = 0;
+    Arrays.fill(statMotiveCounts, 0);
     var creatures = snapshot.creatureSnapshot();
     if (creatures != null) {
       byte rabbitOrdinal = (byte) CreatureType.RABBIT.ordinal();
@@ -153,6 +186,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
         } else {
           foxes++;
         }
+        statMotiveCounts[creatures.motives()[id]]++;
       }
     }
     double biomassTotal = 0;
@@ -184,11 +218,18 @@ public class WorldSimPanel extends AbstractScreenPanel {
       g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
 
       g2.drawImage(cachedImage, 0, 0, null);
-      drawBiomassDots(g2);
-      drawCreatures(g2);
+      if (scale >= DETAIL_ZOOM_THRESHOLD) {
+        drawBiomassDots(g2);
+        drawCreatures(g2);
+      } else if (overlayImage != null) {
+        g2.drawImage(overlayImage, 0, 0, null);
+      }
     } finally {
       g2.dispose();
     }
+
+    // day/night tint over the world, beneath the HUD
+    drawDayNightTint(g);
 
     // render-health accounting: last paint cost + paints per wall second
     statPaintMillis = (System.nanoTime() - paintStart) / 1_000_000.0;
@@ -208,6 +249,30 @@ public class WorldSimPanel extends AbstractScreenPanel {
     }
   }
 
+  /**
+   * Darkens the scene by sim time of day: pitch-dark blue at midnight, clear at noon, smooth
+   * cosine in between. One translucent fill over the viewport — effectively free.
+   */
+  private void drawDayNightTint(Graphics g) {
+    if (worldSnapshot == null) {
+      return;
+    }
+    double hourOfDay = (worldSnapshot.tick() % TICKS_PER_DAY) / 60.0;
+    // 1.0 at midnight, 0.0 at noon
+    double darkness = (1 + Math.cos(Math.PI * 2 * hourOfDay / 24.0)) / 2.0;
+    int tintAlpha = (int) (darkness * 150);
+    if (tintAlpha <= 0) {
+      return;
+    }
+    Graphics2D tint = (Graphics2D) g.create();
+    try {
+      tint.setColor(new Color(10, 12, 48, tintAlpha));
+      tint.fillRect(0, 0, getWidth(), getHeight());
+    } finally {
+      tint.dispose();
+    }
+  }
+
   private void drawHud(Graphics2D g2) {
     if (worldSnapshot == null) {
       return;
@@ -221,6 +286,16 @@ public class WorldSimPanel extends AbstractScreenPanel {
     String popLine =
         String.format(
             "rabbits %d  foxes %d  biomass %,.0f", statRabbits, statFoxes, statBiomassTotal);
+    // one counter per motive, built from the enum so new motives appear automatically
+    StringBuilder motiveText = new StringBuilder("motives");
+    for (Motive motive : Motive.values()) {
+      motiveText
+          .append("  ")
+          .append(motive.name().toLowerCase())
+          .append(' ')
+          .append(statMotiveCounts[motive.ordinal()]);
+    }
+    String motiveLine = motiveText.toString();
     String perfLine =
         String.format("tps %d  fps %d  paint %.1fms", statTps, statFps, statPaintMillis);
 
@@ -233,17 +308,18 @@ public class WorldSimPanel extends AbstractScreenPanel {
     int boxWidth =
         Math.max(
                 Math.max(metrics.stringWidth(timeLine), metrics.stringWidth(popLine)),
-                metrics.stringWidth(perfLine))
+                Math.max(metrics.stringWidth(motiveLine), metrics.stringWidth(perfLine)))
             + pad * 2;
     int lineHeight = metrics.getHeight();
-    int boxHeight = lineHeight * 3 + pad * 2;
+    int boxHeight = lineHeight * 4 + pad * 2;
 
     g2.setColor(HUD_BACKGROUND);
     g2.fillRoundRect(10, 10, boxWidth, boxHeight, 12, 12);
     g2.setColor(Color.WHITE);
     g2.drawString(timeLine, 10 + pad, 10 + pad + metrics.getAscent());
     g2.drawString(popLine, 10 + pad, 10 + pad + lineHeight + metrics.getAscent());
-    g2.drawString(perfLine, 10 + pad, 10 + pad + lineHeight * 2 + metrics.getAscent());
+    g2.drawString(motiveLine, 10 + pad, 10 + pad + lineHeight * 2 + metrics.getAscent());
+    g2.drawString(perfLine, 10 + pad, 10 + pad + lineHeight * 3 + metrics.getAscent());
   }
 
   private void drawBiomassDots(Graphics2D g2) {
@@ -258,13 +334,8 @@ public class WorldSimPanel extends AbstractScreenPanel {
     int lastX = Math.min(worldWidth - 1, (int) Math.ceil((getWidth() - panX) / scale));
     int lastY = Math.min(worldHeight - 1, (int) Math.ceil((getHeight() - panY) / scale));
 
-    // LOD: at high zoom the visible tile count is small and round AA dots look good; zoomed out
-    // there can be tens of thousands of sub-pixel dots, where AA ellipses choke the EDT — flat
-    // 1-tile rects are visually identical at that size and orders of magnitude cheaper
-    boolean detailed = scale >= DETAIL_ZOOM_THRESHOLD;
-    g2.setRenderingHint(
-        RenderingHints.KEY_ANTIALIASING,
-        detailed ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF);
+    // only called above DETAIL_ZOOM_THRESHOLD, so the visible tile count is small
+    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
     // Each tile is 1x1 in world coordinates.
     double diameter = 0.72;
@@ -283,12 +354,45 @@ public class WorldSimPanel extends AbstractScreenPanel {
         // modify inputs by the biomass quantity, output already cached
         int alpha = (int) Math.min(255f, 100 + quantity * 17);
         g2.setColor(FOOD_ALPHA_RAMP[alpha]);
-        if (detailed) {
-          cacheBiomassDot.setFrame(tileX + inset, tileY + inset, diameter, diameter);
-          g2.fill(cacheBiomassDot);
-        } else {
-          g2.fillRect(tileX, tileY, 1, 1);
-        }
+        cacheBiomassDot.setFrame(tileX + inset, tileY + inset, diameter, diameter);
+        g2.fill(cacheBiomassDot);
+      }
+    }
+  }
+
+  /**
+   * Bakes biomass and creatures into one ARGB layer, once per snapshot. Writing pixels directly
+   * into the raster costs a few ms at 10 snapshots/sec; painting becomes a single blit regardless
+   * of how much life the world holds.
+   */
+  private void rebuildOverlay(WorldSnapshot snapshot) {
+    int width = snapshot.width();
+    int height = snapshot.height();
+
+    if (overlayImage == null
+        || overlayImage.getWidth() != width
+        || overlayImage.getHeight() != height) {
+      overlayImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+      overlayPixels = ((DataBufferInt) overlayImage.getRaster().getDataBuffer()).getData();
+    }
+    Arrays.fill(overlayPixels, 0);
+
+    float[] biomass = snapshot.biomass();
+    for (int i = 0; i < biomass.length; i++) {
+      float quantity = biomass[i];
+      if (quantity > 0) {
+        int alpha = (int) Math.min(255f, 100 + quantity * 17);
+        overlayPixels[i] = FOOD_ALPHA_RAMP[alpha].getRGB();
+      }
+    }
+
+    var creatures = snapshot.creatureSnapshot();
+    if (creatures != null) {
+      float[] xs = creatures.x();
+      float[] ys = creatures.y();
+      byte[] species = creatures.species();
+      for (int id : creatures.aliveIds()) {
+        overlayPixels[(int) ys[id] * width + (int) xs[id]] = CREATURE_COLORS[species[id]].getRGB();
       }
     }
   }
@@ -316,9 +420,28 @@ public class WorldSimPanel extends AbstractScreenPanel {
     double shadowInset = (1.0 - shadowDiameter) / 2.0;
     double bodyInset = (1.0 - bodyDiameter) / 2.0;
 
+    // interpolation factor: how far we are between the previous and current snapshot
+    float lerp = 1f;
+    float[] prevXs = null;
+    float[] prevYs = null;
+    if (previousCreatureSnapshot != null && interpSpanNanos > 0) {
+      lerp = Math.min(1f, (System.nanoTime() - lastSnapshotNanos) / (float) interpSpanNanos);
+      prevXs = previousCreatureSnapshot.x();
+      prevYs = previousCreatureSnapshot.y();
+    }
+
     for (int id : creatures.aliveIds()) {
       float cx = xs[id];
       float cy = ys[id];
+      if (prevXs != null) {
+        float px = prevXs[id];
+        float py = prevYs[id];
+        // teleport guard: newborn or reused id — don't glide across the map
+        if (Math.abs(cx - px) <= 3f && Math.abs(cy - py) <= 3f) {
+          cx = px + (cx - px) * lerp;
+          cy = py + (cy - py) * lerp;
+        }
+      }
       if (cx + 1 < firstX || cx > lastX || cy + 1 < firstY || cy > lastY) {
         continue; // off screen
       }
@@ -457,10 +580,29 @@ public class WorldSimPanel extends AbstractScreenPanel {
     byte[] terrain = snapshot.terrain();
 
     for (int i = 0; i < terrain.length; i++) {
-      // color terrain
-      pixelBuffer[i] = TILE_RGB[terrain[i]];
+      // color terrain with deterministic per-tile brightness variation
+      pixelBuffer[i] = jitterRgb(TILE_RGB[terrain[i]], i);
     }
     cachedImage.setRGB(0, 0, width, height, pixelBuffer, 0, width);
+  }
+
+  /**
+   * Deterministic ~±6% per-tile brightness variation so terrain reads as textured ground instead
+   * of flat paint. Pure function of the tile index — the same world always looks the same.
+   */
+  private static int jitterRgb(int rgb, int tileIndex) {
+    int h = tileIndex;
+    h ^= h >>> 16;
+    h *= 0x7feb352d;
+    h ^= h >>> 15;
+    h *= 0x846ca68b;
+    h ^= h >>> 16;
+
+    int scale = 256 + ((h & 31) - 16); // 240..271 => roughly ±6% brightness
+    int r = Math.min(255, ((rgb >> 16 & 0xFF) * scale) >> 8);
+    int g = Math.min(255, ((rgb >> 8 & 0xFF) * scale) >> 8);
+    int b = Math.min(255, ((rgb & 0xFF) * scale) >> 8);
+    return (r << 16) | (g << 8) | b;
   }
 
   private static Color[] buildFoodAlphaRamp() {
