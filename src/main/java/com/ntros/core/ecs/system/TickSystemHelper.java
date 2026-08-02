@@ -22,7 +22,8 @@ public final class TickSystemHelper {
   // all 8 neighbor paired positions
   public static final int[] neighX = {0, 1, 1, 1, 0, -1, -1, -1};
   public static final int[] neighY = {1, 1, 0, -1, -1, -1, 0, 1};
-  // hard clamp on any species' vision: a full-miss ring scan costs around (2r+1)^2 tiles per creature
+  // hard clamp on any species' vision: a full-miss ring scan costs around (2r+1)^2 tiles per
+  // creature
   // per tick, so unbounded radii are a tps killer (per-species radii live in the species table)
   public static final int MAX_VISION_RADIUS = 14;
 
@@ -90,9 +91,7 @@ public final class TickSystemHelper {
   }
 
   public static Occupancy findClosestEnergySource(World world, byte finderSpecies, int x, int y) {
-
     boolean finderIsRabbit = RABBIT.equals(CREATURE_TYPES.get(finderSpecies));
-
     int visionRadius = visionRadiusFor(finderSpecies);
 
     for (int r = 1; r <= visionRadius; r++) {

@@ -97,12 +97,11 @@ public class BehaviorSystem extends AbstractTickSystem {
     int y = (int) world.getCreatureStore().y()[id];
     var energySourcePos =
         findClosestEnergySource(world, world.getCreatureStore().species()[id], x, y);
-    // canExist(), not isSomeoneThere(): biomass positions carry id = -1, and requiring an id
-    // here is the bug that made rabbits blind to food
+    // canExist for biomass
     if (energySourcePos.canExist()) {
       world.getCreatureStore().intentDir()[id] =
           (byte) determineDirection(x, y, energySourcePos.x(), energySourcePos.y()).ordinal();
-      // a fox moving on prey is HUNTing (higher urgency than grazing) — the FLEE-vs-HUNT
+      // a fox moving on prey is HUNTing (higher urgency than grazing).The FLEE-vs-HUNT
       // urgency race in Motive assumes this distinction exists
       byte motive =
           isHerbivore(world.getCreatureStore().species()[id])

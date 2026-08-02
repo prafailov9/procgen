@@ -10,10 +10,7 @@ public class FeedingSystem extends AbstractTickSystem {
   private static final int ENERGY = 5;
   private static final Occupancy NO_NEIGHBOR = Occupancy.ofNothing();
 
-  // A fox converts only half of the prey's remaining energy; the rest is waste. At the previous
-  // 100% conversion every caught rabbit was a full meal, which is how the fox population
-  // exploded to 11K — real predator energy conversion is closer to 10%.
-  private static final float PREY_CONVERSION = 0.1f;
+  private static final float PREY_ENERGY_CONVERSION = 0.1f;
 
   public FeedingSystem(long seed) {
     super(seed);
@@ -75,10 +72,11 @@ public class FeedingSystem extends AbstractTickSystem {
     // The old 5 dmg/tick DOT effect allowed the fox to drain the rabbit's hp over 20 ticks and
     // convert all of it to its own energy.Now the prey
     // dies once, the fox gains PREY_CONVERSION of its remaining energy (capped by the fox's
-    // own maximum), and escape has real value — a rabbit that gets away keeps everything.
+    // own maximum), and escape has real value: a rabbit that gets away keeps everything.
     float gain =
         Math.min(
-            store.energy()[preyId] * PREY_CONVERSION, CREATURE_MAX_ENERGY - store.energy()[id]);
+            store.energy()[preyId] * PREY_ENERGY_CONVERSION,
+            CREATURE_MAX_ENERGY - store.energy()[id]);
     store.energy()[id] += gain;
     store.energy()[preyId] = NIL_FLOAT;
     world.getLifecycleRequests().shoot(preyId);
