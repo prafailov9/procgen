@@ -36,7 +36,19 @@ public final class TickSystemHelper {
       byte finderSpecies,
       byte targetSpecies) {
 
-    int visionRadius = visionRadiusFor(finderSpecies);
+    return findClosestCreatureWithin(
+        creatureStore, x, y, w, h, targetSpecies, visionRadiusFor(finderSpecies));
+  }
+
+  /**
+   * Ring search for the nearest creature of a species within an explicit radius. Split out from
+   * vision because mate-finding and seeing are different ranges: a predator ranges over a
+   * territory to find a mate but only spots prey as far as it can see.
+   */
+  public static Occupancy findClosestCreatureWithin(
+      CreatureStore creatureStore, int x, int y, int w, int h, byte targetSpecies, int radius) {
+
+    int visionRadius = Math.min(radius, MAX_VISION_RADIUS);
 
     for (int r = 1; r <= visionRadius; r++) {
       // Top and bottom rows.

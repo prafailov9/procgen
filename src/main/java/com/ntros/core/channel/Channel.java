@@ -1,16 +1,23 @@
 package com.ntros.core.channel;
 
-import com.ntros.core.command.Command;
+public interface Channel<T> {
 
-public interface Channel {
+  boolean tryOffer(T value);
 
-    boolean tryOffer(Command command);
+  void forceOffer(T value);
 
-    void forceOffer(Command command);
+  /**
+   * @return the next command, or null when the channel is empty. Never blocks — the sim loop drains
+   *     pending commands and moves on to ticking.
+   */
+  T poll();
 
-    /**
-     * @return the next command, or null when the channel is empty. Never blocks — the sim loop
-     *     drains pending commands and moves on to ticking.
-     */
-    Command poll();
+  /**
+   * Waits until a value is available and returns it. For consumers that have nothing else to do —
+   * polling in a tight loop burns a whole core between arrivals, which on a busy sim is CPU stolen
+   * from the thread producing the values in the first place.
+   *
+   * @throws InterruptedException if the waiting thread is interrupted, so shutdown works
+   */
+  T take() throws InterruptedException;
 }

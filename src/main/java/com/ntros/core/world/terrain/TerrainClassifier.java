@@ -18,14 +18,18 @@ public final class TerrainClassifier {
   }
 
   public byte classify(float elevation, float moisture) {
-    if (elevation < 0.21f) {
+    if (elevation < 0.18f) {
       return terrainCodec.encodeTile(DEEP_WATER);
     }
-    if (elevation < 0.38f) {
+    if (elevation < 0.29f) {
       return terrainCodec.encodeTile(SHALLOW_WATER);
     }
-    if (elevation < 0.41f) {
-      return moisture < 0.45f ? terrainCodec.encodeTile(GRASS) : terrainCodec.encodeTile(SAND);
+    if (elevation < 0.38f) {
+      return terrainCodec.encodeTile(SAND);
+    }
+    if (elevation < 0.52f) {
+      return terrainCodec.encodeTile(GRASS);
+//      return moisture < 0.45f ? terrainCodec.encodeTile(GRASS) : terrainCodec.encodeTile(SAND);
     }
     //TODO: Freshwater might be better classified as biomass
     // freshwater puddles, lakes

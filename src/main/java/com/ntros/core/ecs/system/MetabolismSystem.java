@@ -1,5 +1,6 @@
 package com.ntros.core.ecs.system;
 
+import com.ntros.core.ecs.data.DeathCause;
 import com.ntros.core.world.World;
 
 public class MetabolismSystem extends AbstractTickSystem {
@@ -21,7 +22,7 @@ public class MetabolismSystem extends AbstractTickSystem {
       creatureStore.energy()[id] -= IDLE_COST;
       if (creatureStore.energy()[id] <= 0) {
         // request kill
-        lifecycleRequests.shoot(id);
+        lifecycleRequests.shoot(id, DeathCause.STARVED);
       }
     }
   }

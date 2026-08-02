@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.ntros.core.ecs.system.BiomassGrowthSystem;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
@@ -53,6 +54,6 @@ class BiomassGrowthSystemTest {
     Dimensions2d dimensions = new Dimensions2d(WIDTH, HEIGHT);
     Terrain terrain = new Terrain(tiles, new float[size], new float[size], dimensions);
     return World.of(
-        new WorldTerrainSettings(dimensions, SEED), terrain, new float[size], new CreatureStore());
+        new WorldTerrainSettings(dimensions, SEED), terrain, new float[size], new CreatureStore(), new WorldStats());
   }
 }

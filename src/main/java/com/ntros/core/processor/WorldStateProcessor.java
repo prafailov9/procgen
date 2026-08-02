@@ -38,7 +38,7 @@ public class WorldStateProcessor implements Runnable {
   private final World world;
   private final TickingClock clock;
   private final Actor actor;
-  private final Channel channel;
+  private final Channel<Command> channel;
   // lock-free, thread-safe cache for world updates
   private final AtomicReference<WorldSnapshot> latestSnapshot;
   private final CancellationToken token;
@@ -57,7 +57,7 @@ public class WorldStateProcessor implements Runnable {
       World world,
       TickingClock clock,
       Actor actor,
-      Channel channel,
+      Channel<Command> channel,
       AtomicReference<WorldSnapshot> latestSnapshot,
       CancellationToken token) {
     this.world = world;

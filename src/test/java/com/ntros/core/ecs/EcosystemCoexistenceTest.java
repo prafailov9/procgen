@@ -16,6 +16,7 @@ import com.ntros.core.processor.WorldStateProcessor;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
@@ -130,7 +131,7 @@ class EcosystemCoexistenceTest {
     float[] biomass = new BiomassGenerator(terrain, SEED).generateBiomass();
     var creatures = new CreatureSpawner(terrain, SEED).spawnEntities();
 
-    return World.of(terrainSettings, terrain, biomass, creatures);
+    return World.of(terrainSettings, terrain, biomass, creatures, new WorldStats());
   }
 
   /** Same world, no creatures: isolates growth from grazing. */
@@ -139,7 +140,7 @@ class EcosystemCoexistenceTest {
     Terrain terrain = generateTerrain(terrainSettings);
     float[] biomass = new BiomassGenerator(terrain, SEED).generateBiomass();
 
-    return World.of(terrainSettings, terrain, biomass, new CreatureStore());
+    return World.of(terrainSettings, terrain, biomass, new CreatureStore(), new WorldStats());
   }
 
   private static Terrain generateTerrain(WorldTerrainSettings terrainSettings) {

@@ -5,8 +5,10 @@ import static com.ntros.graphics.rendering.panel.sim.WorldColorsUtils.*;
 import com.ntros.core.SimulationSpeed;
 import com.ntros.core.control.IntentTranslator;
 import com.ntros.core.ecs.data.CreatureType;
+import com.ntros.core.ecs.data.DeathCause;
 import com.ntros.core.ecs.data.Motive;
 import com.ntros.core.world.snapshot.CreatureSnapshot;
+import com.ntros.core.world.snapshot.StatsSnapshot;
 import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.graphics.rendering.panel.AbstractScreenPanel;
 import com.ntros.graphics.rendering.panel.ScreenController;
@@ -43,6 +45,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
   // latest snapshot received from the sim; only ever replaced, never mutated
   private WorldSnapshot worldSnapshot;
   private CreatureSnapshot creatureSnapshot;
+
   // previous snapshot's creatures + arrival timing: at detail zoom, positions are interpolated
   // across the interval between snapshots so creatures glide instead of teleporting 10x/sec
   private CreatureSnapshot previousCreatureSnapshot;
@@ -64,26 +67,10 @@ public class WorldSimPanel extends AbstractScreenPanel {
   // instead of up to hundreds of thousands of per-tile shape calls
   private BufferedImage overlayImage;
   private int[] overlayPixels; // direct raster access into overlayImage
-  // HUD stats, recomputed once per new snapshot
-  private int statRabbits;
-  private int statFoxes;
-  private double statBiomassTotal;
-  // motive counts: what the population is doing right now — replaces per-creature hot-loop
-  // logging with continuous aggregated observability
-  // one counter per Motive ordinal, across all species — the full picture of what the
-  // population is doing, not just flee/hunt
-  private final int[] statMotiveCounts = new int[Motive.values().length];
-
-  /// Population history: a ring buffer sampled once per sim-hour. Predator-prey dynamics are
-  /// phase relationships (prey peak, predators peak later, prey crash) which a single-frame
-  /// readout cannot show — you have to see the curves side by side over time.
-  private static final int HISTORY_SAMPLES = 336; // 14 sim days at one sample per sim-hour
-  private static final int TICKS_PER_SAMPLE = 60; // one sim hour
-  private final int[] rabbitHistory = new int[HISTORY_SAMPLES];
-  private final int[] foxHistory = new int[HISTORY_SAMPLES];
-  private int historyCount;
-  private int historyWriteIndex;
-  private long lastSampledHour = Long.MIN_VALUE;
+  // Population/motive/flow stats and the population history all arrive on the snapshot now —
+  // computed by AnalyticsSystem on the sim thread. The panel keeps no simulation state of its
+  // own, only rendering state (below).
+  //
   // render health: paints per second and cost of the last paint
   private int fpsCounter;
   private int statFps;
@@ -149,7 +136,9 @@ public class WorldSimPanel extends AbstractScreenPanel {
       return;
     }
     boolean dimensionsChanged =
-        worldSnapshot == null || worldSnapshot.width() != next.width() || worldSnapshot.height() != next.height();
+        worldSnapshot == null
+            || worldSnapshot.width() != next.width()
+            || worldSnapshot.height() != next.height();
 
     // shift current -> previous for interpolation; measure the actual inter-arrival span
     previousCreatureSnapshot = dimensionsChanged ? null : creatureSnapshot;
@@ -169,13 +158,15 @@ public class WorldSimPanel extends AbstractScreenPanel {
       tpsWindowStartNanos = now;
       tpsWindowStartTick = next.tick();
     }
-    // terrain is static per world: only re-rasterize the 2M-pixel image when it actually changed
-    if (dimensionsChanged || !Arrays.equals(lastTerrain, next.terrain())) {
+    // Terrain is static per world and now shared by reference on the snapshot, so an identity
+    // check is enough — the old Arrays.equals compared 2M bytes on every publish just to learn
+    // nothing had changed. A new world brings a new array, which is exactly when a rebuild is due.
+    if (dimensionsChanged || lastTerrain != next.terrain()) {
       rebuildImage(next);
       lastTerrain = next.terrain();
     }
-    computeStats(next);
-    samplePopulationHistory(next);
+    // no stats computation here anymore: AnalyticsSystem produced them on the sim thread, on
+    // sim-tick boundaries, and they ride along on the snapshot
     rebuildOverlay(next);
     // Reset the view only when loading a differently-sized world, not every tick
     if (dimensionsChanged) {
@@ -183,55 +174,6 @@ public class WorldSimPanel extends AbstractScreenPanel {
       fillPanelWithWorld();
     }
     repaint();
-  }
-
-  /** Records one sample per sim-hour. Must run after computeStats. */
-  private void samplePopulationHistory(WorldSnapshot snapshot) {
-    long hour = snapshot.tick() / TICKS_PER_SAMPLE;
-    if (hour == lastSampledHour) {
-      return;
-    }
-    // a new run rewinds the clock: drop the previous world's history rather than splicing it.
-    // The arrays are zeroed too, since the autoscale maximum scans all slots.
-    if (hour < lastSampledHour) {
-      historyCount = 0;
-      historyWriteIndex = 0;
-      Arrays.fill(rabbitHistory, 0);
-      Arrays.fill(foxHistory, 0);
-    }
-    lastSampledHour = hour;
-
-    rabbitHistory[historyWriteIndex] = statRabbits;
-    foxHistory[historyWriteIndex] = statFoxes;
-    historyWriteIndex = (historyWriteIndex + 1) % HISTORY_SAMPLES;
-    if (historyCount < HISTORY_SAMPLES) {
-      historyCount++;
-    }
-  }
-
-  private void computeStats(WorldSnapshot snapshot) {
-    int rabbits = 0;
-    int foxes = 0;
-    Arrays.fill(statMotiveCounts, 0);
-    var creatures = snapshot.creatureSnapshot();
-    if (creatures != null) {
-      byte rabbitOrdinal = (byte) CreatureType.RABBIT.ordinal();
-      for (int id : creatures.aliveIds()) {
-        if (creatures.species()[id] == rabbitOrdinal) {
-          rabbits++;
-        } else {
-          foxes++;
-        }
-        statMotiveCounts[creatures.motives()[id]]++;
-      }
-    }
-    double biomassTotal = 0;
-    for (float quantity : snapshot.biomass()) {
-      biomassTotal += quantity;
-    }
-    statRabbits = rabbits;
-    statFoxes = foxes;
-    statBiomassTotal = biomassTotal;
   }
 
   @Override
@@ -286,8 +228,8 @@ public class WorldSimPanel extends AbstractScreenPanel {
   }
 
   /**
-   * Darkens the scene by sim time of day: pitch-dark blue at midnight, clear at noon, smooth
-   * cosine in between. One translucent fill over the viewport — effectively free.
+   * Darkens the scene by sim time of day: pitch-dark blue at midnight, clear at noon, smooth cosine
+   * in between. One translucent fill over the viewport — effectively free.
    */
   private void drawDayNightTint(Graphics g) {
     if (worldSnapshot == null) {
@@ -318,10 +260,15 @@ public class WorldSimPanel extends AbstractScreenPanel {
     long hour = (tick % TICKS_PER_DAY) / 60;
     long minute = tick % 60;
 
+    // everything below is read straight off the published snapshot: the sim thread computed it,
+    // the EDT only formats it
+    var stats = worldSnapshot.stats();
+
     String timeLine = String.format("day %d  %02d:%02d  tick %,d", day, hour, minute, tick);
     String popLine =
         String.format(
-            "rabbits %d  foxes %d  biomass %,.0f", statRabbits, statFoxes, statBiomassTotal);
+            "rabbits %d  foxes %d  biomass %,.0f",
+            stats.rabbits(), stats.foxes(), stats.biomassTotal());
     // one counter per motive, built from the enum so new motives appear automatically
     StringBuilder motiveText = new StringBuilder("motives");
     for (Motive motive : Motive.values()) {
@@ -329,9 +276,21 @@ public class WorldSimPanel extends AbstractScreenPanel {
           .append("  ")
           .append(motive.name().toLowerCase())
           .append(' ')
-          .append(statMotiveCounts[motive.ordinal()]);
+          .append(stats.motiveCounts()[motive.ordinal()]);
     }
     String motiveLine = motiveText.toString();
+    // Flows, not stocks: a population sitting at 300 could be dead calm or churning hard, and
+    // those need opposite fixes. Rates cover the last COMPLETE sim day.
+    String flowLine =
+        String.format(
+            "per day  rabbits +%d -%d (starved %d, eaten %d)   foxes +%d -%d (starved %d)",
+            stats.births(CreatureType.RABBIT),
+            stats.deaths(CreatureType.RABBIT),
+            stats.deaths(CreatureType.RABBIT, DeathCause.STARVED),
+            stats.deaths(CreatureType.RABBIT, DeathCause.EATEN),
+            stats.births(CreatureType.FOX),
+            stats.deaths(CreatureType.FOX),
+            stats.deaths(CreatureType.FOX, DeathCause.STARVED));
     String perfLine =
         String.format("tps %d  fps %d  paint %.1fms", statTps, statFps, statPaintMillis);
 
@@ -340,24 +299,24 @@ public class WorldSimPanel extends AbstractScreenPanel {
     g2.setFont(HUD_FONT);
     FontMetrics metrics = g2.getFontMetrics();
 
+    String[] lines = {timeLine, popLine, motiveLine, flowLine, perfLine};
     int pad = 8;
-    int boxWidth =
-        Math.max(
-                Math.max(metrics.stringWidth(timeLine), metrics.stringWidth(popLine)),
-                Math.max(metrics.stringWidth(motiveLine), metrics.stringWidth(perfLine)))
-            + pad * 2;
+    int boxWidth = 0;
+    for (String line : lines) {
+      boxWidth = Math.max(boxWidth, metrics.stringWidth(line));
+    }
+    boxWidth += pad * 2;
     int lineHeight = metrics.getHeight();
-    int boxHeight = lineHeight * 4 + pad * 2;
+    int boxHeight = lineHeight * lines.length + pad * 2;
 
     g2.setColor(HUD_BACKGROUND);
     g2.fillRoundRect(10, 10, boxWidth, boxHeight, 12, 12);
     g2.setColor(Color.WHITE);
-    g2.drawString(timeLine, 10 + pad, 10 + pad + metrics.getAscent());
-    g2.drawString(popLine, 10 + pad, 10 + pad + lineHeight + metrics.getAscent());
-    g2.drawString(motiveLine, 10 + pad, 10 + pad + lineHeight * 2 + metrics.getAscent());
-    g2.drawString(perfLine, 10 + pad, 10 + pad + lineHeight * 3 + metrics.getAscent());
+    for (int i = 0; i < lines.length; i++) {
+      g2.drawString(lines[i], 10 + pad, 10 + pad + lineHeight * i + metrics.getAscent());
+    }
 
-    drawPopulationChart(g2, 10, 10 + boxHeight + 6, Math.max(boxWidth, 260), metrics);
+    drawPopulationChart(g2, 10, 10 + boxHeight + 6, Math.max(boxWidth, 260), metrics, stats);
   }
 
   /**
@@ -365,8 +324,12 @@ public class WorldSimPanel extends AbstractScreenPanel {
    * outnumber foxes ~5:1, so a shared axis would flatten the fox line into the baseline and hide
    * exactly the predator dynamics worth watching.
    */
-  private void drawPopulationChart(Graphics2D g2, int x, int y, int width, FontMetrics metrics) {
-    if (historyCount < 2) {
+  private void drawPopulationChart(
+      Graphics2D g2, int x, int y, int width, FontMetrics metrics, StatsSnapshot stats) {
+    // series arrive already linearized oldest-first, so no ring-buffer arithmetic here
+    int[] rabbits = stats.rabbitHistory();
+    int[] foxes = stats.foxHistory();
+    if (rabbits.length < 2) {
       return;
     }
     int chartHeight = 70;
@@ -378,36 +341,35 @@ public class WorldSimPanel extends AbstractScreenPanel {
     g2.setColor(HUD_BACKGROUND);
     g2.fillRoundRect(x, y, width, chartHeight, 12, 12);
 
-    int rabbitMax = Math.max(1, maxOf(rabbitHistory));
-    int foxMax = Math.max(1, maxOf(foxHistory));
+    int rabbitMax = Math.max(1, maxOf(rabbits));
+    int foxMax = Math.max(1, maxOf(foxes));
+    // samples are one sim-hour apart, so 24 samples make a day
+    int samplesPerDay = TICKS_PER_DAY / stats.ticksPerSample();
 
     g2.setColor(Color.WHITE);
     g2.drawString(
         String.format(
             "last %d sim days   rabbits peak %d   foxes peak %d",
-            historyCount / 24, rabbitMax, foxMax),
+            rabbits.length / samplesPerDay, rabbitMax, foxMax),
         x + pad,
         y + pad + metrics.getAscent());
 
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-    plotSeries(g2, rabbitHistory, rabbitMax, RABBIT_COLOR, x + pad, plotTop, plotWidth, plotHeight);
-    plotSeries(g2, foxHistory, foxMax, FOX_COLOR, x + pad, plotTop, plotWidth, plotHeight);
+    plotSeries(g2, rabbits, rabbitMax, RABBIT_COLOR, x + pad, plotTop, plotWidth, plotHeight);
+    plotSeries(g2, foxes, foxMax, FOX_COLOR, x + pad, plotTop, plotWidth, plotHeight);
   }
 
   private void plotSeries(
-      Graphics2D g2, int[] history, int maxValue, Color color, int x, int y, int w, int h) {
-    int[] xs = new int[historyCount];
-    int[] ys = new int[historyCount];
-    // oldest sample first: once the buffer wraps, the oldest entry sits at the write cursor
-    int oldest = historyCount < HISTORY_SAMPLES ? 0 : historyWriteIndex;
+      Graphics2D g2, int[] series, int maxValue, Color color, int x, int y, int w, int h) {
+    int[] xs = new int[series.length];
+    int[] ys = new int[series.length];
 
-    for (int i = 0; i < historyCount; i++) {
-      int value = history[(oldest + i) % HISTORY_SAMPLES];
-      xs[i] = x + (int) ((long) i * w / (historyCount - 1));
-      ys[i] = y + h - (int) ((long) value * h / maxValue);
+    for (int i = 0; i < series.length; i++) {
+      xs[i] = x + (int) ((long) i * w / (series.length - 1));
+      ys[i] = y + h - (int) ((long) series[i] * h / maxValue);
     }
     g2.setColor(color);
-    g2.drawPolyline(xs, ys, historyCount);
+    g2.drawPolyline(xs, ys, series.length);
   }
 
   private static int maxOf(int[] values) {
@@ -484,11 +446,12 @@ public class WorldSimPanel extends AbstractScreenPanel {
 
     var creatures = snapshot.creatureSnapshot();
     if (creatures != null) {
+      // rows are compacted: index 0..count-1, not by entity id
       float[] xs = creatures.x();
       float[] ys = creatures.y();
       byte[] species = creatures.species();
-      for (int id : creatures.aliveIds()) {
-        overlayPixels[(int) ys[id] * width + (int) xs[id]] = CREATURE_COLORS[species[id]].getRGB();
+      for (int i = 0; i < creatures.count(); i++) {
+        overlayPixels[(int) ys[i] * width + (int) xs[i]] = CREATURE_COLORS[species[i]].getRGB();
       }
     }
   }
@@ -518,26 +481,43 @@ public class WorldSimPanel extends AbstractScreenPanel {
 
     // interpolation factor: how far we are between the previous and current snapshot
     float lerp = 1f;
+    int[] prevIds = null;
     float[] prevXs = null;
     float[] prevYs = null;
     if (previousCreatureSnapshot != null && interpSpanNanos > 0) {
       lerp = Math.min(1f, (System.nanoTime() - lastSnapshotNanos) / (float) interpSpanNanos);
+      prevIds = previousCreatureSnapshot.ids();
       prevXs = previousCreatureSnapshot.x();
       prevYs = previousCreatureSnapshot.y();
     }
 
-    for (int id : creatures.aliveIds()) {
-      float cx = xs[id];
-      float cy = ys[id];
-      if (prevXs != null) {
-        float px = prevXs[id];
-        float py = prevYs[id];
-        // teleport guard: newborn or reused id — don't glide across the map
-        if (Math.abs(cx - px) <= 3f && Math.abs(cy - py) <= 3f) {
-          cx = px + (cx - px) * lerp;
-          cy = py + (cy - py) * lerp;
+    int[] ids = creatures.ids();
+    // Rows are compacted, so row i is a different creature in each snapshot; entity ids are what
+    // correlate them. Both id arrays are ascending, so one forward-only cursor pairs them in
+    // O(n) — no per-id lookup table, which would have reintroduced the capacity-sized array the
+    // compaction just removed.
+    int prevCursor = 0;
+
+    for (int i = 0; i < ids.length; i++) {
+      float cx = xs[i];
+      float cy = ys[i];
+
+      if (prevIds != null) {
+        while (prevCursor < prevIds.length && prevIds[prevCursor] < ids[i]) {
+          prevCursor++;
         }
+        if (prevCursor < prevIds.length && prevIds[prevCursor] == ids[i]) {
+          float px = prevXs[prevCursor];
+          float py = prevYs[prevCursor];
+          // teleport guard: a reused slot can still jump across the map
+          if (Math.abs(cx - px) <= 3f && Math.abs(cy - py) <= 3f) {
+            cx = px + (cx - px) * lerp;
+            cy = py + (cy - py) * lerp;
+          }
+        }
+        // no match means this creature was born since the last snapshot: draw it where it is
       }
+
       if (cx + 1 < firstX || cx > lastX || cy + 1 < firstY || cy > lastY) {
         continue; // off screen
       }
@@ -546,7 +526,7 @@ public class WorldSimPanel extends AbstractScreenPanel {
       cacheCreatureDot.setFrame(cx + shadowInset, cy + shadowInset, shadowDiameter, shadowDiameter);
       g2.fill(cacheCreatureDot);
 
-      g2.setColor(CREATURE_COLORS[species[id]]);
+      g2.setColor(CREATURE_COLORS[species[i]]);
       cacheCreatureDot.setFrame(cx + bodyInset, cy + bodyInset, bodyDiameter, bodyDiameter);
       g2.fill(cacheCreatureDot);
     }
@@ -683,8 +663,8 @@ public class WorldSimPanel extends AbstractScreenPanel {
   }
 
   /**
-   * Deterministic ~±6% per-tile brightness variation so terrain reads as textured ground instead
-   * of flat paint. Pure function of the tile index — the same world always looks the same.
+   * Deterministic ~±6% per-tile brightness variation so terrain reads as textured ground instead of
+   * flat paint. Pure function of the tile index — the same world always looks the same.
    */
   private static int jitterRgb(int rgb, int tileIndex) {
     int h = tileIndex;

@@ -1,5 +1,6 @@
 package com.ntros.core.ecs.system;
 
+import com.ntros.core.ecs.data.DeathCause;
 import com.ntros.core.ecs.data.Occupancy;
 import com.ntros.core.world.World;
 
@@ -79,6 +80,6 @@ public class FeedingSystem extends AbstractTickSystem {
             CREATURE_MAX_ENERGY - store.energy()[id]);
     store.energy()[id] += gain;
     store.energy()[preyId] = NIL_FLOAT;
-    world.getLifecycleRequests().shoot(preyId);
+    world.getLifecycleRequests().shoot(preyId, DeathCause.EATEN);
   }
 }

@@ -14,6 +14,7 @@ import com.ntros.core.clock.SimClock;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.command.ChangeSpeedCommand;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
@@ -81,6 +82,6 @@ class WorldStateProcessorTest {
 
     var terrain = noiseTerrainGenerator.generateTerrain();
     var biomass = new BiomassGenerator(terrain, seed + 1).generateBiomass();
-    return World.of(worldTerrainSettings, terrain, biomass, new CreatureStore());
+    return World.of(worldTerrainSettings, terrain, biomass, new CreatureStore(), new WorldStats());
   }
 }

@@ -6,6 +6,7 @@ import static com.ntros.core.ecs.data.Motive.*;
 import static com.ntros.core.ecs.system.TickSystemHelper.*;
 
 import com.ntros.core.ecs.data.Occupancy;
+import com.ntros.core.world.DangerGrid;
 import com.ntros.core.world.World;
 
 /**
@@ -53,24 +54,18 @@ public class BehaviorSystem extends AbstractTickSystem {
     int x = (int) world.getCreatureStore().x()[id];
     int y = (int) world.getCreatureStore().y()[id];
 
-    var closestFoxPos =
-        findClosestCreature(
-            world.getCreatureStore(),
-            x,
-            y,
-            world.getWidth(),
-            world.getHeight(),
-            (byte) RABBIT.ordinal(),
-            (byte) FOX.ordinal());
-    if (isSomeoneThere(closestFoxPos)) {
-      // determine in what direction, relative to the rabbit, the fox is.
-      // direction TOWARD the fox; MovementSystem inverts it for FLEE
-      world.getCreatureStore().intentDir()[id] =
-          (byte) determineDirection(x, y, closestFoxPos.x(), closestFoxPos.y()).ordinal();
-      world.getCreatureStore().intentMotive()[id] = (byte) FLEE.ordinal();
-      return true;
+    // One array read instead of a full (2r+1)^2 vision scan. The scan never exited early in the
+    // common case — no fox nearby means every tile of the disc gets visited — so this was the
+    // single most expensive thing in the tick at high rabbit counts. DangerGridSystem stamped the
+    // answer for us; the stored value is still the direction TOWARD the predator, which
+    // MovementSystem inverts for FLEE.
+    byte dangerDirection = world.getDangerGrid().dangerDirectionAt(x, y);
+    if (dangerDirection == DangerGrid.NO_DANGER) {
+      return false;
     }
-    return false;
+    world.getCreatureStore().intentDir()[id] = dangerDirection;
+    world.getCreatureStore().intentMotive()[id] = (byte) FLEE.ordinal();
+    return true;
   }
 
   private void wantsToMate(World world, int id) {

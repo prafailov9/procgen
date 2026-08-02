@@ -12,7 +12,8 @@ public record WorldSnapshot(
     long tick,
     byte[] terrain,
     float[] biomass,
-    CreatureSnapshot creatureSnapshot) {
+    CreatureSnapshot creatureSnapshot,
+    StatsSnapshot stats) {
 
   public static WorldSnapshot of(World world, long tick) {
 
@@ -20,16 +21,16 @@ public record WorldSnapshot(
         world.getWidth(),
         world.getHeight(),
         tick,
-        world.getTerrain().clone(),
+        // Shared by reference, NOT cloned: terrain is written once by generation and no system
+        // ever mutates it, so a copy per publish was 2 MB of pure waste on a big world. If a
+        // system ever starts editing terrain (erosion, fire scars, player terraforming) this must
+        // go back to .clone() — the renderer would otherwise see edits mid-frame.
+        world.getTerrain(),
+        // biomass genuinely changes every tick, so this one has to be copied
         world.getBiomass().clone(),
-        new CreatureSnapshot(
-            world.getCreatureStore().getPrimitiveAlive(),
-            world.getCreatureStore().x().clone(),
-            world.getCreatureStore().y().clone(),
-            world.getCreatureStore().energy().clone(),
-            world.getCreatureStore().age().clone(),
-            world.getCreatureStore().species().clone(),
-            // motives survive until publish because Behavior clears at tick START, not end
-            world.getCreatureStore().intentMotive().clone()));
+        // compacted to living creatures only
+        CreatureSnapshot.of(world.getCreatureStore()),
+        // already immutable and already built by AnalyticsSystem — no copying needed
+        world.getLatestStats());
   }
 }

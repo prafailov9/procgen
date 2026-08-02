@@ -31,12 +31,16 @@ public class StateActor implements Actor {
         List.of(
             new BiomassGrowthSystem(seed),
             new SpatialIndexSystem(),
+            // stamps the predator influence map Behavior reads; must precede Behavior
+            new DangerGridSystem(),
             new BehaviorSystem(seed ^ 0x3D4F5645L),
             new MovementSystem(seed ^ 0x4D4F5645L),
             new FeedingSystem(seed ^ 0x6D4F5645L),
             new MetabolismSystem(seed ^ 0x5D4F5645L),
             new ReproductionSystem(seed ^ 0x9D4F5645L),
-            new LifecycleSystem(seed ^ 0x7D4F5645L)));
+            new LifecycleSystem(seed ^ 0x7D4F5645L),
+            // last: a sample must see the world as this tick left it, births and deaths included
+            new AnalyticsSystem()));
   }
 
   @Override

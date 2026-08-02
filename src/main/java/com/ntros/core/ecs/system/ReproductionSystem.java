@@ -35,8 +35,17 @@ public class ReproductionSystem extends AbstractTickSystem {
         continue;
       }
 
+      // radius comes from the species table: rabbits use 1 (the 8 adjacent tiles, unchanged),
+      // sparse foxes range over a territory or they can never pair up at all
       var mate =
-          findNeighborOfSpecies(rng, store, id, world.getWidth(), world.getHeight(), species);
+          TickSystemHelper.findClosestCreatureWithin(
+              store,
+              (int) store.x()[id],
+              (int) store.y()[id],
+              world.getWidth(),
+              world.getHeight(),
+              species,
+              type.mateSearchRadius());
       if (!mate.canExist()) {
         continue;
       }

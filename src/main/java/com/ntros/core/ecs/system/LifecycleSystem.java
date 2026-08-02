@@ -1,8 +1,10 @@
 package com.ntros.core.ecs.system;
 
+import com.ntros.core.ecs.data.DeathCause;
 import com.ntros.core.ecs.store.CreatureStore;
 import com.ntros.core.ecs.store.LifecycleRequests;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 
 import java.util.BitSet;
 
@@ -15,6 +17,8 @@ import static com.ntros.AppConstants.CREATURE_START_AGE;
 public class LifecycleSystem extends AbstractTickSystem {
 
   private static final float NIL_FLOAT = 0.0000000f;
+  // cached so attribution does not call values() (which clones) once per death
+  private static final DeathCause[] DEATH_CAUSES = DeathCause.values();
 
   public LifecycleSystem(long seed) {
     super(seed);
@@ -26,11 +30,15 @@ public class LifecycleSystem extends AbstractTickSystem {
     var requests = world.getLifecycleRequests();
     var alive = store.getAlive();
 
-    cullMarked(requests, alive, store);
-    giveLife(requests, store);
+    // flows are tallied here rather than at the call sites because this is the only place that
+    // knows which requests actually took effect
+    var stats = world.getWorldStats();
+
+    cullMarked(requests, alive, store, stats);
+    giveLife(requests, store, stats);
   }
 
-  private void giveLife(LifecycleRequests requests, CreatureStore store) {
+  private void giveLife(LifecycleRequests requests, CreatureStore store, WorldStats stats) {
     int spawnCount = requests.spawnRequestCount();
     int[] spawnPosX = requests.getSpawnPosX();
     int[] spawnPosY = requests.getSpawnPosY();
@@ -47,12 +55,15 @@ public class LifecycleSystem extends AbstractTickSystem {
       store.energy()[spawnedCreatureId] = spawnEnergy[i];
       store.species()[spawnedCreatureId] = spawnSpecies[i];
       store.age()[spawnedCreatureId] = CREATURE_START_AGE;
+      stats.recordBirth(spawnSpecies[i]);
     }
     requests.clearSpawnRequests();
   }
 
-  private void cullMarked(LifecycleRequests requests, BitSet alive, CreatureStore store) {
+  private void cullMarked(
+      LifecycleRequests requests, BitSet alive, CreatureStore store, WorldStats stats) {
     int[] requestedKills = requests.getRequestedKills();
+    byte[] killCauses = requests.getKillCauses();
     int killCount = requests.killRequestCount();
     for (int i = 0; i < killCount; i++) {
       int id = requestedKills[i];
@@ -61,6 +72,9 @@ public class LifecycleSystem extends AbstractTickSystem {
       if (!alive.get(id)) {
         continue;
       }
+      // attribute BEFORE the kill: species is cleared along with the rest of the slot
+      stats.recordDeath(store.species()[id], DEATH_CAUSES[killCauses[i]]);
+
       store.kill(id);
       store.x()[id] = NIL_FLOAT;
       store.y()[id] = NIL_FLOAT;

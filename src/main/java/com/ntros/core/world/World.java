@@ -1,10 +1,13 @@
 package com.ntros.core.world;
 
+import com.ntros.core.channel.Channel;
+import com.ntros.core.channel.ConcurrentChannel;
 import com.ntros.core.world.terrain.TerrainCodec;
 import com.ntros.core.world.terrain.Tile;
 import com.ntros.core.world.terrain.WorldTerrainSettings;
 import com.ntros.core.ecs.store.CreatureStore;
 import com.ntros.core.ecs.store.LifecycleRequests;
+import com.ntros.core.world.snapshot.StatsSnapshot;
 import com.ntros.generator.Terrain;
 
 /**
@@ -28,8 +31,13 @@ public final class World {
   private final CreatureStore creatureStore;
   // deferred birth/death queues, drained by LifecycleSystem each tick
   private final LifecycleRequests lifecycleRequests = new LifecycleRequests();
-
+  private final WorldStats worldStats;
+  // per-tile predator influence map, rebuilt each tick by DangerGridSystem
+  private final DangerGrid dangerGrid = new DangerGrid();
+  // starts non-null so a world can be published before AnalyticsSystem's first sample
+  private StatsSnapshot latestStats = StatsSnapshot.empty();
   private final TerrainCodec terrainCodec;
+  private final Channel<StatsSnapshot> statsChannel = new ConcurrentChannel<>(1024);
 
   private World(
       int width,
@@ -37,7 +45,8 @@ public final class World {
       long seed,
       byte[] terrain,
       float[] biomass,
-      CreatureStore creatureStore) {
+      CreatureStore creatureStore,
+      WorldStats worldStats) {
     this.width = width;
     this.height = height;
     this.seed = seed;
@@ -48,6 +57,7 @@ public final class World {
     moisture = new float[size];
     lightLevel = new byte[size];
     this.creatureStore = creatureStore;
+    this.worldStats = worldStats;
 
     terrainCodec = new TerrainCodec();
   }
@@ -56,7 +66,8 @@ public final class World {
       WorldTerrainSettings worldTerrainSettings,
       Terrain terrain,
       float[] biomass,
-      CreatureStore creatureStore) {
+      CreatureStore creatureStore,
+      WorldStats worldStats) {
     if (worldTerrainSettings == null) {
       throw new IllegalArgumentException("Empty worldTerrain Settings");
     }
@@ -76,7 +87,34 @@ public final class World {
         worldTerrainSettings.seed(),
         terrain.tiles(),
         biomass,
-        creatureStore);
+        creatureStore,
+        worldStats);
+  }
+
+  public WorldStats getWorldStats() {
+    return worldStats;
+  }
+
+  public DangerGrid getDangerGrid() {
+    return dangerGrid;
+  }
+
+  public Channel<StatsSnapshot> getStatsChannel() {
+    return statsChannel;
+  }
+
+  /**
+   * Latest immutable analytics value, replaced by AnalyticsSystem on sample boundaries and read by
+   * WorldSnapshot.of at publish time. Written and read only on the sim thread; it reaches the EDT
+   * through the snapshot's AtomicReference, which supplies the happens-before edge.
+   */
+  public StatsSnapshot getLatestStats() {
+    return latestStats;
+  }
+
+  public void publishStats(StatsSnapshot stats) {
+    latestStats = stats;
+    statsChannel.forceOffer(stats);
   }
 
   public int getWidth() {

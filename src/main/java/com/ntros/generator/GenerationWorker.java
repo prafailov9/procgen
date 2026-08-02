@@ -2,6 +2,7 @@ package com.ntros.generator;
 
 import com.ntros.core.Lifecycle;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +36,12 @@ public class GenerationWorker implements Lifecycle {
       var biomass = new BiomassGenerator(terrain, seed).generateBiomass();
       var creatureStore = new CreatureSpawner(terrain, seed).spawnEntities();
       worldPromise.complete(
-          World.of(terrainGenerationSettings.worldTerrainSettings(), terrain, biomass, creatureStore));
+          World.of(
+              terrainGenerationSettings.worldTerrainSettings(),
+              terrain,
+              biomass,
+              creatureStore,
+              new WorldStats()));
       log.info("Gen finished");
     } catch (Throwable ex) {
       worldPromise.completeExceptionally(ex);

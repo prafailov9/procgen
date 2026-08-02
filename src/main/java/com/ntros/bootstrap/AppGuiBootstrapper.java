@@ -3,6 +3,8 @@ package com.ntros.bootstrap;
 import com.ntros.AppConstants;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationController;
+import com.ntros.core.channel.Channel;
+import com.ntros.core.channel.ConcurrentChannel;
 import com.ntros.core.ecs.system.*;
 import com.ntros.core.processor.WorldStateProcessor;
 import com.ntros.core.channel.CommandChannel;
@@ -13,6 +15,7 @@ import com.ntros.core.control.SwappableIntentTranslator;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
 import com.ntros.core.world.World;
+import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.snapshot.WorldSnapshot;
 import com.ntros.generator.GenerationWorker;
@@ -100,6 +103,7 @@ public final class AppGuiBootstrapper {
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
 
+    // stats channel is created on the world
     // Create actor. Tick order and per-system RNG streams live in the factory so the ecosystem
     // regression test runs exactly this wiring.
     Actor actor = StateActor.ofEcosystem(world.getSeed());
@@ -113,7 +117,7 @@ public final class AppGuiBootstrapper {
     StateUIRenderer renderer = new StateUIRenderer(appGuiRunner.getWorldSimPanel(), latestSnapshot);
     // Handles the Simulation lifecycle
     simulationController =
-        new SimulationController(worldStateProcessor, renderer, RENDERER_DELAY_MS, token);
+        new SimulationController(worldStateProcessor, renderer, RENDERER_DELAY_MS, token, world.getStatsChannel());
 
     // non-blocking: spawns the state-proc thread and starts the render timer
     simulationController.start();
