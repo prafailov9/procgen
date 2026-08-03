@@ -39,7 +39,7 @@ public final class TerrainClassifier {
     //          : terrainCodec.encodeTile(FRESH_WATER);
     //    }
 
-    if (elevation < 0.75f) {
+    if (elevation < 0.98f) {
       return moisture < 0.45f
           ? terrainCodec.encodeTile(GRASS)
           : terrainCodec.encodeTile(FOREST); // lowland
