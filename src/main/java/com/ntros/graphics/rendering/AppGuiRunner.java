@@ -1,21 +1,20 @@
 package com.ntros.graphics.rendering;
 
+import static com.ntros.graphics.ScreenType.*;
+
 import com.ntros.core.control.IntentTranslator;
 import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.graphics.rendering.panel.*;
 import com.ntros.graphics.rendering.panel.sim.WorldSimPanel;
+import java.awt.*;
+import java.util.function.Consumer;
+import javax.swing.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
-import java.awt.*;
-import java.util.function.Consumer;
-
-import static com.ntros.graphics.ScreenType.*;
-
 /**
  * Handles the Main App window: builds the frame, the screens and their controller. All Swing
- * components live here, so construction must happen on the EDT — the constructor enforces it.
+ * components live here, so construction must happen on the EDT. enforced in the constructor.
  */
 public final class AppGuiRunner {
   private static final Logger log = LoggerFactory.getLogger(AppGuiRunner.class);

@@ -11,10 +11,10 @@ import static com.ntros.core.ecs.system.TickSystemHelper.inBounds;
 /**
  * Per-tile "a predator can be seen from here" layer — an influence map.
  *
- * <p>This exists to invert the predator-detection query. Every rabbit used to scan its whole
- * vision disc for foxes every tick, and because the common case is "no fox nearby" the scan never
- * exited early: it paid the full (2r+1)^2 tiles. At 100K rabbits with vision 5 that is 12M
- * creatureAt calls per tick, which is what pinned the big world at ~65 tps.
+ * <p>This exists to invert the predator-detection query. Every rabbit used to scan its whole vision
+ * disc for foxes every tick, and because the common case is "no fox nearby" the scan never exited
+ * early: it paid the full (2r+1)^2 tiles. At 100K rabbits with vision 5 that is 12M creatureAt
+ * calls per tick, which is what pinned the big world at ~65 tps.
  *
  * <p>Inverted, the few predators stamp their surroundings once (600 foxes x 121 tiles = ~72K
  * writes) and every rabbit answers "is danger near, and from which way?" with a single array read.
@@ -43,8 +43,8 @@ public final class DangerGrid {
   /**
    * Rebuilds the layer from current predator positions.
    *
-   * @param stampRadius how far a predator can be sensed — must equal the prey's vision radius,
-   *     since that is the range the prey used to scan for itself
+   * @param stampRadius how far a predator can be sensed must equal the prey's vision radius, since
+   *     that is the range the prey used to scan for itself
    */
   public void rebuild(World world, byte predatorSpecies, int stampRadius) {
     int worldWidth = world.getWidth();
@@ -75,12 +75,7 @@ public final class DangerGrid {
       if (store.species()[id] != predatorSpecies) {
         continue;
       }
-      stamp(
-          (int) store.x()[id],
-          (int) store.y()[id],
-          stampRadius,
-          worldWidth,
-          worldHeight);
+      stamp((int) store.x()[id], (int) store.y()[id], stampRadius, worldWidth, worldHeight);
     }
   }
 

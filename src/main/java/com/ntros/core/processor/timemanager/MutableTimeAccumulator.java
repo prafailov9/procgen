@@ -1,6 +1,6 @@
-package com.ntros.core.processor;
+package com.ntros.core.processor.timemanager;
 
-public interface MutableSimStats extends SimStats {
+public interface MutableTimeAccumulator extends TimeAccumulator {
   void setLastPublishTimeNanos(long t);
 
   void setLastPublishedTick(long t);

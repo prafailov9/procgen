@@ -24,7 +24,8 @@ public class CreatureStore {
   // all indexed by creatureId
   final float[] x = new float[CREATURES_MAX_CAPACITY];
   final float[] y =
-      new float[CREATURES_MAX_CAPACITY]; // position (float: smooth movement, casts to tile via (int))
+      new float
+          [CREATURES_MAX_CAPACITY]; // position (float: smooth movement, casts to tile via (int))
   final float[] energy = new float[CREATURES_MAX_CAPACITY]; // life budget; 0 = starved
 
   final short[] age = new short[CREATURES_MAX_CAPACITY];
@@ -78,11 +79,16 @@ public class CreatureStore {
       // compute creature's position
       int cell = (int) y[id] * width + (int) x[id];
 
-      // if no creatures on that tile, insert
+      // if no creatures in the chain, mark the cell
       if (cellHead[cell] == -1) {
         usedCells[usedCellCount++] = cell;
       }
-      // then insert at the front of the tile chain
+      // for each creature on an occupied cell, make its ID point to the current head[cell], then
+      // overwrite the head[cell] = id
+      // This creates a chain in nextInCell, where the id's are linked. cellHead[cell] contains the
+      // start id.
+      // The rest of the chain is found in nextInCell[id1] = id2 -> nextInCell[id2] = id3 ...
+      // nextInCell[idn] -> -1, which is the end of the chain
       nextInCell[id] = cellHead[cell];
       cellHead[cell] = id;
     }
@@ -95,6 +101,27 @@ public class CreatureStore {
     int creatureId = freeList[--freeCount];
     alive.set(creatureId);
     return creatureId;
+  }
+
+  // For Testing. Remove after
+  public int[] getCellHead() {
+    return cellHead;
+  }
+
+  public int[] getNextInCell() {
+    return nextInCell;
+  }
+
+  public int[] getUsedCells() {
+    return usedCells;
+  }
+
+  public int getUsedCellCount() {
+    return usedCellCount;
+  }
+
+  public int getIndexWidth() {
+    return indexWidth;
   }
 
   /**

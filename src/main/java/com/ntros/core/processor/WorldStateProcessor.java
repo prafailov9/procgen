@@ -6,6 +6,9 @@ import com.ntros.core.channel.Channel;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.command.ChangeSpeedCommand;
 import com.ntros.core.command.Command;
+import com.ntros.core.processor.timemanager.MutableTimeAccumulator;
+import com.ntros.core.processor.timemanager.ProcessorTimeAccumulator;
+import com.ntros.core.processor.timemanager.TimeAccumulator;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.world.World;
 import com.ntros.core.world.snapshot.WorldSnapshot;
@@ -42,16 +45,16 @@ public class WorldStateProcessor implements Runnable {
   // lock-free, thread-safe cache for world updates
   private final AtomicReference<WorldSnapshot> latestSnapshot;
   private final CancellationToken token;
-  private final MutableSimStats stats = new ProcessorSimStats();
+  private final MutableTimeAccumulator timeAccumulator = new ProcessorTimeAccumulator();
 
   /**
    * Sim speed multiplier. Buys simulation time. Elapsed time is multiplied by it to allow more
-   * updates per frame. 1x speed buys 1 clock sim time, 5x buys 5, etc.
+   * updates per frame. 1x speed buys 1 clock sim time, 5x buys 5, etc. 0 = paused
    */
-  private volatile double speed = 1.0; // 0 = paused
+  private volatile double speed = 1.0;
 
-  /** Enables unthrottled state updates, capped by MAX_UPDATES_COUNT */
-  private volatile boolean maxSpeed = false; // true = unthrottled
+  /** Enables unthrottled state updates, capped by MAX_UPDATES_COUNT. true = unthrottled */
+  private volatile boolean maxSpeed = false;
 
   public WorldStateProcessor(
       World world,
@@ -67,26 +70,26 @@ public class WorldStateProcessor implements Runnable {
     this.latestSnapshot = latestSnapshot;
     this.token = token;
     // seed the renderer with the initial state so the panel has something to show immediately
-    latestSnapshot.set(WorldSnapshot.of(world, clock.currentTime()));
+    latestSnapshot.set(WorldSnapshot.of(world, clock.currentTick()));
   }
 
   public void run() {
     long last = System.nanoTime();
     // prevents snapshots from being published too frequently
-    stats.setLastPublishTimeNanos(0);
+    timeAccumulator.setLastPublishTimeNanos(0);
     // clock ticks start at 0. -1 means no tick has been published yet
     // Tracks the last time the state was published. Prevents re-publishing the same snapshot
-    stats.setLastPublishedTick(-1);
-    // time bucket, deciding the exact number of updates for each loop
-    stats.setTimeBucket(0);
+    timeAccumulator.setLastPublishedTick(-1);
+    // Decides the exact number of updates each cycle
+    timeAccumulator.setTimeBucket(0);
     log.info("Spinning World...");
     while (!token.isCancelRequested()) {
       drainCommands();
 
-      // stamp the start time of this spin
+      // stamp the start time of this cycle
       long now = System.nanoTime();
-      // measure real time in seconds that has elapsed between end of last tick and now
-      stats.setElapsedRealTime((now - last) / 1_000_000_000.0);
+      // measure the unprocessed time, between the end of last tick and now, for this cycle
+      timeAccumulator.setElapsedRealTime((now - last) / 1_000_000_000.0);
       last = now;
 
       if (maxSpeed) {
@@ -105,28 +108,30 @@ public class WorldStateProcessor implements Runnable {
     log.info("Exiting StateLoop...");
   }
 
-  public SimStats getSimStats() {
-    return stats;
+  public TimeAccumulator getSimStats() {
+    return timeAccumulator;
   }
 
   /** try to publish once in a frame, at most 10 times a second */
   private void tryPublish(long now) {
-    long currentTick = clock.currentTime();
+    long currentTick = clock.currentTick();
 
-    // only publish when the snapshot interval has elapsed and the state has been updated
-    if (now - stats.getLastPublishTimeNanos() >= SNAPSHOT_INTERVAL_NANOS
-        && currentTick != stats.getLastPublishedTick()) {
+    if (canPublish(now, currentTick)) {
       latestSnapshot.set(WorldSnapshot.of(world, currentTick));
-      stats.setLastPublishTimeNanos(now);
-      stats.setLastPublishedTick(currentTick);
+      timeAccumulator.setLastPublishTimeNanos(now);
+      timeAccumulator.setLastPublishedTick(currentTick);
     }
+  }
+
+  // only publish when the snapshot interval has elapsed and the state has been updated
+  private boolean canPublish(long now, long tick) {
+    return now - timeAccumulator.getLastPublishTimeNanos() >= SNAPSHOT_INTERVAL_NANOS
+        && tick != timeAccumulator.getLastPublishedTick();
   }
 
   // when MaxSpeed is enabled, we bypass the accumulator
   // and spin as much as the CPU allows, updating the world and
   // clock MAX_UPDATES_COUNT times.
-  // TODO: this shi is fucking crazy, it just paints the whole
-  //  map yellow instantly no matter the cap. Should probably default maxSpeed to x250
   private void updateAtMax() {
     for (int i = 0; i < MAX_UPDATES_COUNT && !token.isCancelRequested(); i++) {
       update();
@@ -135,24 +140,26 @@ public class WorldStateProcessor implements Runnable {
 
   /**
    * The TimeBucket accumulates unprocessed simulation time. Each processor iteration, when speed >
-   * 0, fills at minimum FRAME_SLEEP_MS, multiplied by the speed modifier. Processor ticks only when
-   * the bucket has accumulated enough time: timeBucket > BASE_TICK_SECONDS(16.66ms). Each update
-   * costs BASE_TICK_SECONDS, draining the bucket. Any remainder stays in the bucket for the next
-   * loop so small time pieces aren't lost and are processed in the next iteration.
+   * 0, fills elapsed time from last tick till now, multiplied by the speed modifier. Processor
+   * ticks only when the bucket has accumulated enough time: timeBucket >
+   * BASE_TICK_SECONDS(16.66ms). Each update costs BASE_TICK_SECONDS, draining the bucket. Any
+   * remainder stays in the bucket for the next loop so small time pieces(timeBucket <
+   * BASE_TICK_SECONDS) aren't lost and are processed in the next iteration. If the timeBucket is
+   * too large, produces MAX_TPS or more updates, reset it to prevent spiraling
    */
   private void updateAtRate() {
-    // calculate the total amount of updates in time for this spin
-    // speed multiplier allocates more updates
-    stats.fillTimeBucket(speed * stats.getElapsedRealTime());
+    // fill the bucket with the unprocessed time
+    timeAccumulator.fillTimeBucket(speed * timeAccumulator.getElapsedRealTime());
+    // track total updates
     int ticks = 0;
     while (canDrainBucket(ticks)) {
       update();
-      stats.drainTimeBucket(BASE_TICK_SECONDS);
+      timeAccumulator.drainTimeBucket(BASE_TICK_SECONDS);
       ticks++;
     }
     // reset the bucket if we hit the cap
     if (ticks == MAX_TICKS_PER_FRAME) {
-      stats.setTimeBucket(0);
+      timeAccumulator.setTimeBucket(0);
     }
   }
 
@@ -165,7 +172,8 @@ public class WorldStateProcessor implements Runnable {
    * commands
    */
   private boolean canDrainBucket(int currentTicks) {
-    return stats.getTimeBucket() >= BASE_TICK_SECONDS && currentTicks < MAX_TICKS_PER_FRAME;
+    return timeAccumulator.getTimeBucket() >= BASE_TICK_SECONDS
+        && currentTicks < MAX_TICKS_PER_FRAME;
   }
 
   /** sleeps the processor at minimum FRAME_SLEEP_MS */
@@ -178,7 +186,7 @@ public class WorldStateProcessor implements Runnable {
   }
 
   private void update() {
-    actor.act(world, clock.currentTime());
+    actor.act(world, clock.currentTick());
     clock.tick();
   }
 

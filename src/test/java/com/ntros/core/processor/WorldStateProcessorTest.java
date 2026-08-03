@@ -1,5 +1,6 @@
 package com.ntros.core.processor;
 
+import com.ntros.core.processor.timemanager.TimeAccumulator;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
 import com.ntros.core.ecs.store.CreatureStore;
@@ -50,7 +51,7 @@ class WorldStateProcessorTest {
 
   @Test
   public void runProc_verifySimStatsUpdated() throws InterruptedException {
-    SimStats simStats = processor.getSimStats();
+    TimeAccumulator timeAccumulator = processor.getSimStats();
     Random random = new Random(SEED);
     List<SimulationSpeed> speeds = List.of(SimulationSpeed.values());
     procThread.start();
@@ -60,10 +61,10 @@ class WorldStateProcessorTest {
       channel.tryOffer(command);
     }
     stopProc();
-    Assertions.assertTrue(simStats.getElapsedRealTime() > 0);
-    Assertions.assertTrue(simStats.getLastPublishedTick() > -1);
-    Assertions.assertTrue(simStats.getLastPublishTimeNanos() > 0);
-    Assertions.assertTrue(simStats.getTimeBucket() != 0.00d);
+    Assertions.assertTrue(timeAccumulator.getElapsedRealTime() > 0);
+    Assertions.assertTrue(timeAccumulator.getLastPublishedTick() > -1);
+    Assertions.assertTrue(timeAccumulator.getLastPublishTimeNanos() > 0);
+    Assertions.assertTrue(timeAccumulator.getTimeBucket() != 0.00d);
   }
 
   private void stopProc() throws InterruptedException {

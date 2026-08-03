@@ -2,11 +2,9 @@ package com.ntros.core;
 
 import com.ntros.core.channel.Channel;
 import com.ntros.core.processor.WorldStateProcessor;
-import com.ntros.core.world.WorldStats;
 import com.ntros.core.world.snapshot.StatsSnapshot;
 import com.ntros.graphics.rendering.StateUIRenderer;
 import com.ntros.save.WorldSaver;
-
 import javax.swing.*;
 
 public class SimulationController implements Lifecycle {

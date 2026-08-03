@@ -30,7 +30,7 @@ public record WorldSnapshot(
         world.getBiomass().clone(),
         // compacted to living creatures only
         CreatureSnapshot.of(world.getCreatureStore()),
-        // already immutable and already built by AnalyticsSystem — no copying needed
+        // already immutable and already built by AnalyticsSystem. No copying needed
         world.getLatestStats());
   }
 }

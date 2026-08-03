@@ -1,53 +1,54 @@
 package com.ntros.bootstrap;
 
+import static com.ntros.graphics.ScreenType.SIMULATION;
+
 import com.ntros.AppConstants;
 import com.ntros.core.CancellationToken;
 import com.ntros.core.SimulationController;
-import com.ntros.core.channel.Channel;
-import com.ntros.core.channel.ConcurrentChannel;
-import com.ntros.core.ecs.system.*;
-import com.ntros.core.processor.WorldStateProcessor;
 import com.ntros.core.channel.CommandChannel;
 import com.ntros.core.clock.SimClock;
 import com.ntros.core.clock.TickingClock;
 import com.ntros.core.control.ChannelIntentTranslator;
 import com.ntros.core.control.SwappableIntentTranslator;
+import com.ntros.core.ecs.system.*;
+import com.ntros.core.processor.WorldStateProcessor;
 import com.ntros.core.updater.Actor;
 import com.ntros.core.updater.StateActor;
 import com.ntros.core.world.World;
-import com.ntros.core.world.WorldStats;
-import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.core.world.snapshot.WorldSnapshot;
+import com.ntros.core.world.terrain.TerrainGenerationSettings;
 import com.ntros.generator.GenerationWorker;
 import com.ntros.graphics.rendering.AppGuiRunner;
 import com.ntros.graphics.rendering.StateUIRenderer;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static com.ntros.graphics.ScreenType.SIMULATION;
-
 /**
- * Wires the GUI screens to the simulation runtime: world setup requests generation, generation
+ * Wires the GUI screens to the simulation runtime: WorldSetupPanel requests generation, generation
  * completion starts the sim and switches to the simulation screen.
  */
 public final class AppGuiBootstrapper {
+  // How much time the UI sits idle before rendering the next frame
   private static final int RENDERER_DELAY_MS = 16;
+  // Default capacity for commands, drained by the processor thread
   private static final int COMMAND_QUEUE_CAPACITY = 1024;
 
   private static final Logger log = LoggerFactory.getLogger(AppGuiBootstrapper.class);
 
-  // stable handle the GUI holds forever; retargeted at each run's channel
+  // The command facade held by the GUI to send commands to the state-proc.
+  // When a sim-run is terminated, and a new sim is requested -> swaps the translator instance with
+  // a fresh one.
   private final SwappableIntentTranslator intentTranslator = new SwappableIntentTranslator();
 
+  // Builds the Main Window and its components. Must be called on the EDT
   private AppGuiRunner appGuiRunner;
+  // Orchestrates the execution state: state-proc thread, EDT Timer and the world-saver
   private SimulationController simulationController;
 
   public void bootstrapApplication(long seed) {
-    // build AND show on the EDT: Swing components must be created there, not just displayed
+    // build AND show on the EDT: Swing components must be created and displayed there
     SwingUtilities.invokeLater(
         () -> {
           appGuiRunner =
@@ -90,7 +91,7 @@ public final class AppGuiBootstrapper {
             SwingUtilities::invokeLater);
   }
 
-  // start spinning once a world is generated
+  // clears the current sim-state and builds a fresh one
   private void startSimulation(World world) {
     log.info("Sim start requested. Initializing state components..");
     stopCurrentSimulation();
@@ -103,7 +104,6 @@ public final class AppGuiBootstrapper {
     // measures wall time
     TickingClock clock = SimClock.ofDefaultTimeScale();
 
-    // stats channel is created on the world
     // Create actor. Tick order and per-system RNG streams live in the factory so the ecosystem
     // regression test runs exactly this wiring.
     Actor actor = StateActor.ofEcosystem(world.getSeed());
@@ -116,13 +116,15 @@ public final class AppGuiBootstrapper {
     // The UI Updater
     StateUIRenderer renderer = new StateUIRenderer(appGuiRunner.getWorldSimPanel(), latestSnapshot);
     // Handles the Simulation lifecycle
+    // StatsChannel is created on the world. Analytics system writes to it, world-saver consumes it.
     simulationController =
-        new SimulationController(worldStateProcessor, renderer, RENDERER_DELAY_MS, token, world.getStatsChannel());
+        new SimulationController(
+            worldStateProcessor, renderer, RENDERER_DELAY_MS, token, world.getStatsChannel());
 
-    // non-blocking: spawns the state-proc thread and starts the render timer
     simulationController.start();
     log.info("Sim started");
 
+    // sets a new intent transporter for a fresh run
     intentTranslator.setDelegate(new ChannelIntentTranslator(channel));
     appGuiRunner.getWorldSetupPanel().setGenerating(false);
     appGuiRunner.getScreenController().show(SIMULATION);

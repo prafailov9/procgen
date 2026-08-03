@@ -6,14 +6,14 @@ package com.ntros.core.clock;
  */
 public interface TickingClock extends Clock {
 
-    /** increments current time by 1 logical timestep */
-    void tick();
+  /** increments current time by 1 logical timestep */
+  void tick();
 
-    /**
-     * set current time to given t
-     *
-     * @param t given time to set the current time counter to. Throws IllegalArgumentException on
-     *     given t < 0
-     */
-    void jump(long t);
+  /**
+   * set current time to given t
+   *
+   * @param t given time to set the current time counter to. Throws IllegalArgumentException on
+   *     given t < 0
+   */
+  void jump(long t);
 }

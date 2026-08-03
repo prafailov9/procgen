@@ -28,7 +28,7 @@ public class SimClock implements TickingClock {
     }
 
     @Override
-    public long currentTime() {
+    public long currentTick() {
         return time;
     }
 

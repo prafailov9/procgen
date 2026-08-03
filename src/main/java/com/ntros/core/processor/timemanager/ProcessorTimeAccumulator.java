@@ -1,6 +1,6 @@
-package com.ntros.core.processor;
+package com.ntros.core.processor.timemanager;
 
-public class ProcessorSimStats implements MutableSimStats {
+public class ProcessorTimeAccumulator implements MutableTimeAccumulator {
   private long lastPublishTimeNanos;
   private long lastPublishedTick;
   private double elapsedRealTime;
