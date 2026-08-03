@@ -15,7 +15,7 @@ public class AppConstants {
   // initial capacity at start
   public static final int CREATURES_INITIAL_CAPACITY = 1_000;
   // actual mid-sim bound
-  public static final int CREATURES_MAX_CAPACITY = 25;
+  public static final int CREATURES_MAX_CAPACITY = 180_000;
   public static final float MEADOW_SPAWN_CHANCE = 0.029f; // decides if spawning in clusters
   public static final float BIOMASS_SPAWN_CHANCE = 0.072f; // decides whether food spawns at all
   public static final float PREDATOR_SPAWN_CHANCE = 0.10f;

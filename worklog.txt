@@ -73,13 +73,12 @@ III. Architecture notes (see Simulation_Architecture.txt and Ecosystem_Rules.txt
     creature except by taking it from somewhere else.
 
 
-Coexistance Breakthrough:
+Coexistence Breakthrough:
 SEED: -9070669405368241458
 Small World(490x270)
 1K creatures total: 900 rabbits, 100 foxes
 The codebase state with all tuning knobs: [commit hash: 8fc4908889674af6782664bf27d653a47292dc40; desc: coexistance found]
 tuning knob changes:
-
 KNOB                 | Before   | After  | Factor|
 -------------------------------------------------|
 BASE_GROWTH     	 | 0.05	    |5.50	 |110×   |
